@@ -1,5 +1,8 @@
-fastapi
-uvicorn
+fastapi~=0.115.6
+uvicorn~=0.30.6
 gunicorn
 jinja2
 python-multipart
+
+neo4j~=5.20.0
+langchain-openai~=0.2.13
