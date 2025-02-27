@@ -1,39 +1,33 @@
 ---
-page_type: sample
-description: "A minimal sample app that can be used to demonstrate deploying FastAPI apps to Azure App Service."
-languages:
-- python
-products:
-- azure
-- azure-app-service
----
+# AI-Powered Tutoring System
 
-# Deploy a Python (FastAPI) web app to Azure App Service - Sample Application
+An interactive tutoring application built with LangGraph and Streamlit that creates personalized lessons and asks questions to test understanding.
 
-This is the sample FastAPI application for the Azure Quickstart [Deploy a Python (Django, Flask or FastAPI) web app to Azure App Service](https://docs.microsoft.com/en-us/azure/app-service/quickstart-python). For instructions on how to create the Azure resources and deploy the application to Azure, refer to the Quickstart article.
+## Features
 
-Sample applications are available for the other frameworks here:
-- Django [https://github.com/Azure-Samples/msdocs-python-django-webapp-quickstart](https://github.com/Azure-Samples/msdocs-python-django-webapp-quickstart)
-- Flask [https://github.com/Azure-Samples/msdocs-python-flask-webapp-quickstart](https://github.com/Azure-Samples/msdocs-python-flask-webapp-quickstart)
+- Generates a custom lesson plan based on your chosen topic
+- Creates multiple-choice questions to test understanding
+- Provides immediate feedback on answers
+- Summarizes your learning progress at the end
 
-If you need an Azure account, you can [create one for free](https://azure.microsoft.com/en-us/free/).
+## How to Use
 
-## Local Testing
+1. Enter a topic you want to learn about
+2. Click "Start Lesson" to generate a personalized lesson plan
+3. Answer the questions that are presented
+4. Receive a learning summary upon completion
 
-To try the application on your local machine:
+## Setup for Local Development
 
-### Install the requirements
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Create a `.env` file with your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+4. Run the application: `streamlit run cassie_streamlit.py`
 
-`pip install -r requirements.txt`
+## Deployment
 
-### Start the application
+This application is deployed on Streamlit Community Cloud.
 
-`uvicorn main:app --reload`
-
-### Example call
-
-http://127.0.0.1:8000/
-
-## Next Steps
-
-To learn more about FastAPI, see [FastAPI](https://fastapi.tiangolo.com/).

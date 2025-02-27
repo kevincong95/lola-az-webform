@@ -5,3 +5,19 @@ node_modules/
 .wix/
 jsconfig.json
 *.DS_Store
+
+# Environment variables
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Streamlit
+.streamlit/secrets.toml
