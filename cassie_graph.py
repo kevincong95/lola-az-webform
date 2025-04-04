@@ -1,28 +1,38 @@
 import os
 from dotenv import load_dotenv
-from langgraph.graph import END, StateGraph, START
 from langchain_openai import ChatOpenAI
+from langgraph.graph import END, MessagesState, StateGraph, START
+from openinference.instrumentation.openai import OpenAIInstrumentor
+from phoenix.otel import register
 from typing import Annotated, List
-from typing_extensions import TypedDict
 
 # Load environment variables and initialize LLM
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
-model = ChatOpenAI(temperature=0, model_name="gpt-4")
+llm = ChatOpenAI(temperature=0, model_name="gpt-4")
+PHOENIX_API_KEY = os.getenv("PHOENIX_API_KEY")
+os.environ["PHOENIX_CLIENT_HEADERS"] = f"api_key={PHOENIX_API_KEY}"
+os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = "https://app.phoenix.arize.com"
 
-class LessonState(TypedDict, total=False):
+# configure the Phoenix tracer
+tracer_provider = register(
+  project_name="fastlearn",
+  endpoint="https://app.phoenix.arize.com/v1/traces"
+)
+OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+
+class LessonState(MessagesState):
     topic: Annotated[str, "The lesson topic", "input"]
     lesson_plan: List[str]
     current_step: int
     current_question: str
     attempts: int
     summary: str
-    messages: List[dict]
     user_answer: Annotated[str, "User's answer to current question", "input"]
     awaiting_answer: bool  # State flag for UI flow control
 
 def generate_lesson_plan(state: LessonState) -> LessonState:
-    response = model.invoke(
+    response = llm.invoke(
         f"Create a lesson plan for {state['topic']} with 3 key teaching points. Return each teaching point in one sentence and no other formatting text."
     ).content
     lesson_plan = [line for line in response.split("\n") if line]
@@ -31,7 +41,7 @@ def generate_lesson_plan(state: LessonState) -> LessonState:
 def ask_question(state: LessonState) -> LessonState:
     step = state["current_step"]
     
-    question = model.invoke(f"Generate a multiple-choice question for: {state['lesson_plan'][step]}").content
+    question = llm.invoke(f"Generate a multiple-choice question for: {state['lesson_plan'][step]}").content
     messages = state.get("messages", []) + [
         {"role": "assistant", "content": f"🤔 **Question:** {question}"}
     ]
@@ -44,7 +54,7 @@ def check_answer(state: LessonState) -> LessonState:
     current_step = state["current_step"]
     user_answer = state["user_answer"]
     
-    feedback = model.invoke(f"Is '{user_answer}' the correct answer for: {state['current_question']}? Respond with the word correct or incorrect followed by an explanation.").content
+    feedback = llm.invoke(f"Is '{user_answer}' the correct answer for: {state['current_question']}? Respond with the word correct or incorrect followed by an explanation.").content
     
     is_correct = feedback.lower().startswith('correct')
     new_step = current_step
@@ -62,13 +72,13 @@ def check_answer(state: LessonState) -> LessonState:
 
     # Check if we've completed all steps or exhausted attempts
     if new_step >= len(state["lesson_plan"]) or attempts > 1:
-        summary = model.invoke(f"""Summarize the student's learning. 
+        summary = llm.invoke(f"""Summarize the student's learning. 
         Mention strengths, mistakes, and improvement areas. 
         Here is the message history: {messages}""").content
         
         return {**state, 
                 "messages": messages, 
-                "current_step": new_step,  # Keep the new step value
+                "current_step": new_step,
                 "attempts": attempts, 
                 "summary": summary,
                 "user_answer": "", 
@@ -77,7 +87,7 @@ def check_answer(state: LessonState) -> LessonState:
     # Return updated state with new step value
     return {**state, 
             "messages": messages, 
-            "current_step": new_step,  # Make sure we're returning the incremented step
+            "current_step": new_step,
             "attempts": attempts, 
             "user_answer": "",  # Clear the answer for the next question
             "awaiting_answer": False}

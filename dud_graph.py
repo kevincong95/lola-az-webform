@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, StateGraph, START
+from langgraph.graph import END, MessagesState, StateGraph, START
 from typing import Annotated, Optional
-from langgraph.prebuilt import MessagesState
 import os
 
 # Load environment variables from .env
@@ -18,13 +17,14 @@ llm = ChatOpenAI(temperature=0, model_name="gpt-4")
 
 class DudState(MessagesState):
     """State for Dud graph, extending MessagesState for message history management."""
-    correct_answers: int = 0
-    mistakes: int = 0
-    golden_bridge: bool = False
-    current_question: str = ""
-    user_answer: Annotated[Optional[str], "User's answer to current question", "input"] = None
-    awaiting_answer: bool = False  # State flag for UI flow control
-    summary: Optional[str] = None
+    topic: Annotated[str, "The lesson topic"]
+    correct_answers: int
+    mistakes: int
+    golden_bridge: bool
+    current_question: str
+    user_answer: Annotated[str, "User's answer to current question", "input"]
+    awaiting_answer: bool
+    summary: str
 
 # ------------------ Define Graph Nodes ------------------
 
