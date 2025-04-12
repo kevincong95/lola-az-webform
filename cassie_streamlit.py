@@ -1,54 +1,145 @@
 import streamlit as st
-from cassie_graph import lesson_graph
+import tempfile
+import json
+import os
+from lesson_plan import lesson_graph
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 st.title("🎓 AI-Powered Tutoring System")
 st.write("Cassie will teach you interactively!")
 
 # Initialize session state
-if "lesson_state" not in st.session_state:
-    st.session_state.lesson_state = {
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "state" not in st.session_state:
+    st.session_state.state = {
         "topic": "",
-        "lesson_plan": [],
-        "current_step": 0,
-        "current_question": "",
-        "attempts": 0,
-        "summary": "",
         "messages": [],
-        "user_answer": "",
-        "awaiting_answer": False
+        "template_path": None,
+        "template": None,
+        "lesson_plan": None
     }
 
+# Convert Streamlit chat format to Langgraph format
+def convert_to_langgraph_messages(streamlit_messages):
+    langgraph_messages = []
+    for msg in streamlit_messages:
+        if msg["role"] == "user":
+            langgraph_messages.append(HumanMessage(content=msg["content"]))
+        elif msg["role"] == "assistant":
+            langgraph_messages.append(AIMessage(content=msg["content"]))
+        elif msg["role"] == "system":
+            langgraph_messages.append(SystemMessage(content=msg["content"]))
+    return langgraph_messages
+
+# Convert Langgraph format to Streamlit chat format
+def convert_to_streamlit_messages(langgraph_messages):
+    streamlit_messages = []
+    for msg in langgraph_messages:
+        if isinstance(msg, HumanMessage):
+            streamlit_messages.append({"role": "user", "content": msg.content})
+        elif isinstance(msg, AIMessage):
+            streamlit_messages.append({"role": "assistant", "content": msg.content})
+        elif isinstance(msg, SystemMessage):
+            streamlit_messages.append({"role": "system", "content": msg.content})
+    return streamlit_messages
+
 # ------------------ Start Lesson ------------------
-user_topic = st.text_input("Enter the topic you want to learn:")
-
-if st.button("Start Lesson") and user_topic:
-    # Initialize new lesson
-    st.session_state.lesson_state["topic"] = user_topic
+with st.sidebar:
+    st.header("Lesson Setup")
+    user_topic = st.text_input("Enter the topic you want to learn:", key="topic_input")
     
-    lesson_state = lesson_graph.invoke(st.session_state.lesson_state)
-    st.session_state.lesson_state = lesson_state
-
-# ------------------ Display Chat Messages ------------------
-# Only display messages up to the current index
-for msg in st.session_state.lesson_state['messages']:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
-
-# ------------------ Handle User Input ------------------
-if st.session_state.lesson_state.get('awaiting_answer', False):
-    user_answer = st.chat_input("Your answer:")
+    # Optional template upload
+    template_file = st.file_uploader("Optional: Upload a lesson template (JSON file)", type=["json"])
     
-    if user_answer:
-        current_state = st.session_state.lesson_state.copy()
-        current_state["user_answer"] = user_answer
-        print(current_state)
+    if st.button("Start Lesson") and user_topic:
+        # Reset state for new lesson
+        st.session_state.messages = []
+        st.session_state.state = {
+            "topic": user_topic,
+            "messages": [],
+            "template_path": None,
+            "template": None,
+            "lesson_plan": None
+        }
         
-        # Continue the graph with the user's answer
-        new_state = lesson_graph.invoke(current_state)
-        st.session_state.lesson_state = new_state
+        # Handle template if uploaded
+        if template_file is not None:
+            # Create a temporary file to store the uploaded template
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
+                tmp_file.write(template_file.getvalue())
+                template_path = tmp_file.name
+            
+            # Read the template to add to state
+            try:
+                with open(template_path, 'r') as f:
+                    template_content = json.load(f)
+                st.session_state.state["template"] = template_content
+                st.session_state.state["template_path"] = template_path
+            except Exception as e:
+                st.error(f"Error loading template: {e}")
+        
+        # Add initial message
+        initial_message = f"I want to learn about {user_topic}"
+        st.session_state.messages.append({"role": "user", "content": initial_message})
+        
+        # Update Langgraph state with initial message
+        st.session_state.state["messages"] = [HumanMessage(content=initial_message)]
+        
+        # Invoke the graph with initial state
+        new_state = lesson_graph.invoke(st.session_state.state)
+        st.session_state.state = new_state
+        
+        # Convert Langgraph messages to Streamlit format
+        st.session_state.messages = convert_to_streamlit_messages(new_state["messages"])
+        
         st.rerun()
 
-# Display summary if lesson is complete
-if "summary" in st.session_state.lesson_state and st.session_state.lesson_state["summary"]:
-    st.write("### 📝 Lesson Summary")
-    st.write(st.session_state.lesson_state["summary"])
+# ------------------ Display Chat Messages ------------------
+for message in st.session_state.messages:
+    if message["role"] != "system":  # Don't show system messages
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
+
+# ------------------ Handle User Input ------------------
+user_input = st.chat_input("Type your message here...")
+
+if user_input:
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # Update with user's message
+    with st.chat_message("user"):
+        st.write(user_input)
+    
+    # Update Langgraph state
+    current_state = st.session_state.state.copy()
+    current_state["messages"] = convert_to_langgraph_messages(st.session_state.messages)
+    
+    # Continue the graph with the user's input
+    new_state = lesson_graph.invoke(current_state)
+    st.session_state.state = new_state
+    
+    # Convert back to Streamlit format for display
+    st.session_state.messages = convert_to_streamlit_messages(new_state["messages"])
+    
+    # Display assistant's response
+    with st.chat_message("assistant"):
+        latest_ai_message = new_state["messages"][-1]
+        if isinstance(latest_ai_message, AIMessage):
+            st.write(latest_ai_message.content)
+    
+    st.rerun()
+
+# Cleanup temporary files when the app is closed
+def cleanup_temp_files():
+    if st.session_state.state.get("template_path") and os.path.exists(st.session_state.state["template_path"]):
+        try:
+            os.remove(st.session_state.state["template_path"])
+        except:
+            pass
+
+# Register cleanup function
+import atexit
+atexit.register(cleanup_temp_files)
