@@ -51,6 +51,7 @@ def extract_file_path(state: State) -> State:
 
 def load_template(state: State) -> State:
     """Load the template from the file path."""
+    print('DEBUG: Entering load_template')
     if state.get("template_path"):
         template = read_json_template(state["template_path"])
         if isinstance(template, dict):
@@ -65,10 +66,12 @@ def load_template(state: State) -> State:
 
 def route_based_on_template(state: State) -> str:
     """Determine the next node based on whether we have a template."""
-    if state.get("template"):
-        return "execute_lesson_plan"
+    if state.get("lesson_plan"):
+        print('DEBUG: Routing to END')
+        return END
     else:
-        return "human_input"
+        print('DEBUG: Routing to execute_lesson_plan')
+        return "execute_lesson_plan"
 
 def execute_lesson_plan(state: State) -> State:
     """Execute a lesson plan specified in the template."""
@@ -127,11 +130,7 @@ def build_graph():
     
     workflow.add_conditional_edges(
         "load_template",
-        route_based_on_template,
-        {
-            "execute_lesson_plan": "execute_lesson_plan",
-            "human_input": END
-        }
+        route_based_on_template
     )
     workflow.add_edge("execute_lesson_plan", END)
     
