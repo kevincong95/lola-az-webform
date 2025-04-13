@@ -51,7 +51,6 @@ def extract_file_path(state: State) -> State:
 
 def load_template(state: State) -> State:
     """Load the template from the file path."""
-    print('DEBUG: Entering load_template')
     if state.get("template_path"):
         template = read_json_template(state["template_path"])
         if isinstance(template, dict):
