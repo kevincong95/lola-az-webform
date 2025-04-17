@@ -1,17 +1,21 @@
-from typing import Annotated, Literal, Optional, Union
+import time
+
+from typing import Annotated, Literal, Optional, Union, Dict, Any
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState, StateGraph, START, END
 
-from cassie_graph import lesson_graph, LessonState
+from lesson_plan import lesson_graph, LessonState
 from dud_graph import dud_graph, DudState
 
 class PrimaryState(MessagesState):
     """Global state for the tutoring assistant."""
-    user_topic: str  # Topic for Cassie Graph (if needed)
+    awaiting_user_choice: bool
+    user_topic: str  # Topic for the session
     session_type: Literal["lesson", "quiz"]  # Tracks subgraph type
-    subgraph_state: Union[LessonState, DudState]  # Active subgraph state
-    next_step: Literal["cassie_entry", "dud_entry"]
+    subgraph_state: Union[LessonState, DudState, None]  # Active subgraph state
+    next_step: Optional[Literal["cassie_entry", "dud_entry", "summarize_and_route"]]
 
 
 llm = ChatOpenAI(temperature=0, model_name="gpt-4")
@@ -28,92 +32,244 @@ def fetch_lesson_plan(state: PrimaryState):
 
 def primary_assistant(state: PrimaryState):
     """Handles user messages and determines the next step."""
-    """Primary assistant fetches user details, greets them, and introduces the next lesson."""
+    # Check if we're awaiting user's choice after summary
+    message = None
+    if state.get("awaiting_user_choice", False):
+        next_step = "primary_assistant"
+        print(state.get("user_replied_to_choice", False))
+        # Check if user has previously replied to the choice prompt
+        if state.get("user_replied_to_choice", False):
+            print("User replied.")
+            # Get the last message which should be the user's response
+            user_messages = [msg for msg in state.get("messages", []) 
+                            if isinstance(msg, HumanMessage)]
+            
+            if user_messages:
+                last_user_message = user_messages[-1].content.lower()
+                
+                if "continue" in last_user_message:
+                    print("User continue.")
+                    # User wants to continue with recommended session type
+                    new_session_type = state.get("recommended_session_type", "lesson")
+                    message = f"Great! Let's proceed with the {new_session_type}."
+                    
+                    # Prepare for new session
+                    return {
+                        **state,
+                        "session_type": new_session_type,
+                        "message": message,
+                        "subgraph_state": None,
+                        "awaiting_user_choice": False,
+                        "user_replied_to_choice": False,
+                        "next_step": "primary_assistant"  # Start new session
+                    }
+                elif "exit" in last_user_message:
+                    # User wants to exit
+                    print("User exit.")
+                    message = "Thank you for your time! The session has ended. You can start a new session whenever you're ready."
+                    
+                    return {
+                        **state,
+                        "message": message,
+                        "awaiting_user_choice": False,
+                        "user_replied_to_choice": False,
+                        "next_step": END  # End the workflow
+                    }
+                else:
+                    # User provided something else, ask again
+                    print("User response unknown.")
+                    message = "I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."
+            else:
+                # Safety check - if we somehow lost the user message
+                message = "Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."
+        else:
+            # This is the first time we're processing after setting awaiting_user_choice
+            # Mark that we've presented the choice to the user and are now waiting for reply
+            print("Waiting for user.")
+            return {
+                **state,
+                "user_replied_to_choice": True,
+                "next_step": END
+            }
     
-    # 1️⃣ Fetch user profile
-    if not state['subgraph_state']:
-        user_profile = fetch_user_profile(state)
-        name = user_profile["name"]
-        next_topic = user_profile["next_topic"]
-
-        # 2️⃣ Fetch lesson plan
-        lesson_info = fetch_lesson_plan(state)
-        lesson_intro = lesson_info["lesson_overview"]
-        default_lesson_state = {"topic": next_topic, "lesson_plan": lesson_intro}
-        default_dud_state = {"topic": next_topic}
-
-        # 3️⃣ Generate greeting and introduction
-        greeting = f"Hello {name}! Ready to learn? Today, we’ll explore **{next_topic}**. {lesson_intro}"
-
-    # 4️⃣ Determine where to route next
-    route = route_to_subgraph(state)
-
-    if route == 'cassie_entry':
-        new_subgraph_state = default_lesson_state
+    # Prepare default states if needed
+    if not state.get('subgraph_state'):
+        topic = state.get("user_topic", "what is a computer")
+        session_type = state.get("session_type", "lesson")
+        
+        if session_type == "lesson":
+            default_state = {
+                "topic": topic,
+                "messages": state.get("messages", []),
+                "template": None,
+                "template_path": None,
+                "lesson_plan": None
+            }
+        else:  # quiz
+            default_state = {
+                "topic": topic,
+                "messages": state.get("messages", []),
+                "correct_answers": 0,
+                "mistakes": 0,
+                "awaiting_answer": False,
+                "current_question": "",
+                "user_answer": ""
+            }
+        
+        subgraph_state = default_state
     else:
-        new_subgraph_state = default_dud_state
-
+        subgraph_state = state["subgraph_state"]
+    
+    # Determine routing
+    next_step = route_to_subgraph(state)
+    
     return {
-        "message": greeting,
-        "next_step": route,
-        "subgraph_state": new_subgraph_state
+        **state,
+        "message": message if message else None,
+        "next_step": next_step,  # Set next_step for routing
+        "subgraph_state": subgraph_state,
     }
 
-def route_to_subgraph(state: PrimaryState):
+def route_to_subgraph(state: PrimaryState) -> str:
     """Routes user to the correct subgraph based on intent."""
-    # Access state as a dictionary
-    subgraph_state = state.get("subgraph_state", None)
-    session_type = state.get("session_type", "lesson")  # Default to lesson
+    # Check if the subgraph has a summary (which means it's completed)
+    subgraph_state = state.get("subgraph_state", {})
+    if subgraph_state and subgraph_state.get("summary"):
+        # If we have a summary, check if we need to switch to a different session type
+        return "summarize_and_route"  # Go to summarization node
     
-    # For the invalid session type test
+    # First determine which session type we're in
+    session_type = state.get("session_type", "lesson")
+    
+    # For invalid session type
     if session_type not in ["lesson", "quiz"]:
         raise ValueError(f"Invalid session type: {session_type}")
-        
-    if subgraph_state and "summary" in subgraph_state:
-        summary = subgraph_state["summary"]
-        # LLM determines if this is a lesson request or a quiz request
-        decision = llm.invoke(f"Determine whether the student needs a tutoring lesson (response: lesson) or a quiz (response: quiz) based on their most recent progress summary: {summary}").content.strip().lower()
-        if "lesson" in decision:
-            return "cassie_entry"
-        elif "quiz" in decision:
-            return "dud_entry"
     
-    # Default routing based on session_type
+    # Route based on session type
     if session_type == "lesson":
         return "cassie_entry"
     else:  # session_type == "quiz"
         return "dud_entry"
 
+def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
+    """Analyzes the summary and determines the next session type, then presents the choice to the user."""
+    subgraph_state = state.get("subgraph_state", {})
+    summary = subgraph_state.get("summary", "")
+    
+    if not summary:
+        # No summary available, keep current session type
+        return {**state}
+    
+    # Use LLM to determine if student needs a lesson or quiz based on the summary
+    prompt = f"""
+    Based on the following summary of a student's performance, determine if they should:
+    1. Continue with another lesson (if they need more practice or teaching)
+    2. Take a quiz (if they seem ready to test their knowledge)
+    
+    Summary: {summary}
+    
+    Respond with just one word: 'lesson' or 'quiz'.
+    """
+    
+    decision = llm.invoke(prompt).content.strip().lower()
+    
+    # Create a message that includes the summary and routing decision, with options for the user
+    if "quiz" in decision:
+        new_session_type = "quiz"
+        recommendation = "I recommend taking a quiz to test your knowledge."
+    else:
+        new_session_type = "lesson"
+        recommendation = "I recommend continuing with more lessons to strengthen your understanding."
+    
+    # Create message that includes summary and presents options to the user
+    message = f"""
+    ## Session Summary
+    {summary}
+
+    ## Next Steps
+    {recommendation}
+
+    **What would you like to do?**
+    - Reply with "Continue" to proceed with the {new_session_type}
+    - Reply with "Exit" to end this session
+    """
+    
+    # Create new empty subgraph state while preserving the summary
+    new_subgraph_state = {
+        "summary": summary,
+        "messages": [AIMessage(content=message)]  # Add the message to subgraph state
+    }
+    
+    # Return state with message in multiple places to ensure it's displayed
+    return {
+        **state,
+        "message": message,  # For direct UI display
+        "subgraph_state": new_subgraph_state,  # Include in subgraph state
+        "recommended_session_type": new_session_type,
+        "awaiting_user_choice": True,
+        "user_replied_to_choice": False,
+        "next_step": "primary_assistant"
+    }
+
 def cassie_entry(state: PrimaryState):
-    if not isinstance(state["subgraph_state"], LessonState):
+    """Entry point for the lesson plan subgraph."""
+    # Ensure we have the proper state structure
+    if not state.get("subgraph_state"):
         return state
+    
+    # Invoke lesson graph
     response = lesson_graph.invoke(state["subgraph_state"])
-    return {**state, "subgraph_state": response}
+    
+    # Check if we have a summary (lesson completed)
+    has_summary = response and "summary" in response and response["summary"] is not None
+    
+    # Set next step based on summary presence
+    next_step = "summarize_and_route" if has_summary else None
+    
+    # Return updated state
+    return {**state, "subgraph_state": response, "next_step": next_step}
 
 def dud_entry(state: PrimaryState):
-    if not isinstance(state["subgraph_state"], DudState):
+    """Entry point for the quiz subgraph."""
+    # Ensure we have the proper state structure
+    if not state.get("subgraph_state"):
         return state
+    
+    # Invoke dud graph
     response = dud_graph.invoke(state["subgraph_state"])
-    return {**state, "subgraph_state": response}
+    
+    # Check if we have a summary (quiz completed)
+    has_summary = response and "summary" in response and response["summary"] is not None
+    
+    # Set next step based on summary presence
+    next_step = "summarize_and_route" if has_summary else None
+    
+    # Return updated state
+    return {**state, "subgraph_state": response, "next_step": next_step}
 
+# Function to determine next step
+def determine_next_step(state: PrimaryState):
+    """Determines the next step based on the current state."""
+    next_step = state.get("next_step")
+    if next_step is None:
+        return END
+    return next_step
+
+# Create the graph
 primary_graph = StateGraph(PrimaryState)
 
-# Nodes
+# Add nodes
 primary_graph.add_node("primary_assistant", primary_assistant)
 primary_graph.add_node("cassie_entry", cassie_entry)
 primary_graph.add_node("dud_entry", dud_entry)
+primary_graph.add_node("summarize_and_route", summarize_and_route)
 
 # Routing Logic
 primary_graph.add_edge(START, "primary_assistant")
-primary_graph.add_conditional_edges("primary_assistant", lambda state: state["next_step"])
-
-# Allow users to return after completing a session
-primary_graph.add_edge("cassie_entry", "primary_assistant")
-primary_graph.add_edge("dud_entry", "primary_assistant")
+primary_graph.add_conditional_edges("primary_assistant", determine_next_step)
+primary_graph.add_conditional_edges("cassie_entry", determine_next_step)
+primary_graph.add_conditional_edges("dud_entry", determine_next_step)
+primary_graph.add_conditional_edges("summarize_and_route", determine_next_step)
 
 # Compile
 primary_graph = primary_graph.compile()
-
-# initial_state = PrimaryState(messages=[{"role": "user", "content": "recursion"}])
-# output = primary_graph.invoke(initial_state)
-# print(output)
