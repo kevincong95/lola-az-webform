@@ -22,6 +22,10 @@ if "state" not in st.session_state:
         "next_step": None
     }
 
+# Store template file in session state so it persists
+if "template_file" not in st.session_state:
+    st.session_state.template_file = None
+
 # Convert Streamlit chat format to Langgraph format
 def convert_to_langgraph_messages(streamlit_messages):
     langgraph_messages = []
@@ -46,6 +50,59 @@ def convert_to_streamlit_messages(langgraph_messages):
             streamlit_messages.append({"role": "system", "content": msg.content})
     return streamlit_messages
 
+# Function to start a new session
+def start_new_session(topic, session_type, template_file=None):
+    # Reset state for new session
+    st.session_state.messages = []
+    st.session_state.state = {
+        "user_topic": topic,
+        "messages": [],
+        "session_type": session_type,
+        "subgraph_state": None,
+        "next_step": None
+    }
+    
+    # Handle template if uploaded (for lesson sessions)
+    if template_file is not None and session_type == "lesson":
+        # Create a temporary file to store the uploaded template
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
+            tmp_file.write(template_file.getvalue())
+            template_path = tmp_file.name
+        
+        # Read the template to add to state
+        try:
+            with open(template_path, 'r') as f:
+                template_content = json.load(f)
+                
+            # Prepare lesson state
+            lesson_state = {
+                "topic": topic,
+                "messages": [],
+                "template": template_content,
+                "template_path": template_path,
+                "lesson_plan": None
+            }
+            st.session_state.state["subgraph_state"] = lesson_state
+        except Exception as e:
+            st.error(f"Error loading template: {e}")
+    
+    # Add initial message
+    initial_message = f"I want to {'learn about' if session_type == 'lesson' else 'take a quiz on'} {topic}"
+    st.session_state.messages.append({"role": "user", "content": initial_message})
+    st.session_state.state["messages"].append(HumanMessage(content=initial_message))
+    
+    # Update primary graph state with initial message and invoke it
+    new_state = primary_graph.invoke(st.session_state.state)
+    st.session_state.state = new_state
+    
+    # Preserve messages across graph calls
+    if new_state.get("subgraph_state") and new_state["subgraph_state"].get("messages"):
+        st.session_state.messages = convert_to_streamlit_messages(new_state["subgraph_state"]["messages"])
+    else:
+        # Handle the initial greeting from the primary graph
+        if new_state.get("message"):
+            st.session_state.messages.append({"role": "assistant", "content": new_state["message"]})
+
 # ------------------ Start Session ------------------
 with st.sidebar:
     st.header("Session Setup")
@@ -61,58 +118,12 @@ with st.sidebar:
     # Optional template upload for lesson plans
     template_file = st.file_uploader("Optional: Upload a lesson template (JSON file)", type=["json"])
     
+    # Store template file in session state so it persists
+    if template_file is not None:
+        st.session_state.template_file = template_file
+    
     if st.button("Start Session") and user_topic:
-        # Reset state for new session
-        st.session_state.messages = []
-        st.session_state.state = {
-            "user_topic": user_topic,
-            "messages": [],
-            "session_type": session_type,
-            "subgraph_state": None,
-            "next_step": None
-        }
-        
-        # Handle template if uploaded (for lesson sessions)
-        if template_file is not None and session_type == "lesson":
-            # Create a temporary file to store the uploaded template
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
-                tmp_file.write(template_file.getvalue())
-                template_path = tmp_file.name
-            
-            # Read the template to add to state
-            try:
-                with open(template_path, 'r') as f:
-                    template_content = json.load(f)
-                    
-                # Prepare lesson state
-                lesson_state = {
-                    "topic": user_topic,
-                    "messages": [],
-                    "template": template_content,
-                    "template_path": template_path,
-                    "lesson_plan": None
-                }
-                st.session_state.state["subgraph_state"] = lesson_state
-            except Exception as e:
-                st.error(f"Error loading template: {e}")
-        
-        # Add initial message
-        initial_message = f"I want to {'learn about' if session_type == 'lesson' else 'take a quiz on'} {user_topic}"
-        st.session_state.messages.append({"role": "user", "content": initial_message})
-        st.session_state.state["messages"].append(HumanMessage(content=initial_message))
-        
-        # Update primary graph state with initial message and invoke it
-        new_state = primary_graph.invoke(st.session_state.state)
-        st.session_state.state = new_state
-        
-        # Preserve messages across graph calls
-        if new_state.get("subgraph_state") and new_state["subgraph_state"].get("messages"):
-            st.session_state.messages = convert_to_streamlit_messages(new_state["subgraph_state"]["messages"])
-        else:
-            # Handle the initial greeting from the primary graph
-            if new_state.get("message"):
-                st.session_state.messages.append({"role": "assistant", "content": new_state["message"]})
-        
+        start_new_session(user_topic, session_type, st.session_state.template_file)
         st.rerun()
 
 # ------------------ Display Chat Messages ------------------
@@ -128,9 +139,54 @@ if user_input:
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
     
-    # Update with user's message
     with st.chat_message("user"):
         st.write(user_input)
+    
+    # Special handling for choice after summary
+    if st.session_state.state.get("awaiting_user_choice", False):
+        user_choice = user_input.lower()
+        current_state = st.session_state.state.copy()
+        
+        if "continue" in user_choice:
+            # User wants to continue with recommended session
+            new_session_type = current_state.get("recommended_session_type", "lesson")
+            user_topic = current_state.get("user_topic", "")
+            
+            # Display confirmation message
+            with st.chat_message("assistant"):
+                message = f"Great! Let's proceed with the {new_session_type}."
+                st.write(message)
+            st.session_state.messages.append({"role": "assistant", "content": message})
+            
+            # Start a new session using the recommended session type
+            # Pass the stored template file from session state
+            start_new_session(user_topic, new_session_type, st.session_state.template_file)
+            
+            # Clear awaiting_user_choice flag
+            st.session_state.state["awaiting_user_choice"] = False
+            
+            st.rerun()
+                
+        elif "exit" in user_choice:
+            # User wants to exit
+            with st.chat_message("assistant"):
+                st.write("Thank you for your time! The session has ended. You can start a new session whenever you're ready.")
+            st.session_state.messages.append({"role": "assistant", "content": "Thank you for your time! The session has ended. You can start a new session whenever you're ready."})
+            
+            # Reset state
+            st.session_state.state = {
+                "user_topic": "",
+                "messages": [],
+                "subgraph_state": None,
+                "session_type": "lesson",
+                "next_step": None,
+                "awaiting_user_choice": False
+            }
+        else:
+            # User provided something else
+            with st.chat_message("assistant"):
+                st.write("I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session.")
+            st.session_state.messages.append({"role": "assistant", "content": "I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."})
     
     # Update state with user's message
     current_state = st.session_state.state.copy()

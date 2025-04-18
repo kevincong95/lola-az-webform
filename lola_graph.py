@@ -32,65 +32,6 @@ def fetch_lesson_plan(state: PrimaryState):
 
 def primary_assistant(state: PrimaryState):
     """Handles user messages and determines the next step."""
-    # Check if we're awaiting user's choice after summary
-    message = None
-    if state.get("awaiting_user_choice", False):
-        next_step = "primary_assistant"
-        print(state.get("user_replied_to_choice", False))
-        # Check if user has previously replied to the choice prompt
-        if state.get("user_replied_to_choice", False):
-            print("User replied.")
-            # Get the last message which should be the user's response
-            user_messages = [msg for msg in state.get("messages", []) 
-                            if isinstance(msg, HumanMessage)]
-            
-            if user_messages:
-                last_user_message = user_messages[-1].content.lower()
-                
-                if "continue" in last_user_message:
-                    print("User continue.")
-                    # User wants to continue with recommended session type
-                    new_session_type = state.get("recommended_session_type", "lesson")
-                    message = f"Great! Let's proceed with the {new_session_type}."
-                    
-                    # Prepare for new session
-                    return {
-                        **state,
-                        "session_type": new_session_type,
-                        "message": message,
-                        "subgraph_state": None,
-                        "awaiting_user_choice": False,
-                        "user_replied_to_choice": False,
-                        "next_step": "primary_assistant"  # Start new session
-                    }
-                elif "exit" in last_user_message:
-                    # User wants to exit
-                    print("User exit.")
-                    message = "Thank you for your time! The session has ended. You can start a new session whenever you're ready."
-                    
-                    return {
-                        **state,
-                        "message": message,
-                        "awaiting_user_choice": False,
-                        "user_replied_to_choice": False,
-                        "next_step": END  # End the workflow
-                    }
-                else:
-                    # User provided something else, ask again
-                    print("User response unknown.")
-                    message = "I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."
-            else:
-                # Safety check - if we somehow lost the user message
-                message = "Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."
-        else:
-            # This is the first time we're processing after setting awaiting_user_choice
-            # Mark that we've presented the choice to the user and are now waiting for reply
-            print("Waiting for user.")
-            return {
-                **state,
-                "user_replied_to_choice": True,
-                "next_step": END
-            }
     
     # Prepare default states if needed
     if not state.get('subgraph_state'):
@@ -125,7 +66,6 @@ def primary_assistant(state: PrimaryState):
     
     return {
         **state,
-        "message": message if message else None,
         "next_step": next_step,  # Set next_step for routing
         "subgraph_state": subgraph_state,
     }
@@ -194,21 +134,21 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
     - Reply with "Exit" to end this session
     """
     
-    # Create new empty subgraph state while preserving the summary
+    # Create new subgraph state with the message
     new_subgraph_state = {
+        "topic": state.get("user_topic", ""),
+        "messages": [AIMessage(content=message)],
         "summary": summary,
-        "messages": [AIMessage(content=message)]  # Add the message to subgraph state
     }
     
-    # Return state with message in multiple places to ensure it's displayed
+    # Return state with both the message for immediate display and the flag for user response handling
     return {
         **state,
-        "message": message,  # For direct UI display
-        "subgraph_state": new_subgraph_state,  # Include in subgraph state
+        "message": message,  # For direct display in UI
+        "subgraph_state": new_subgraph_state,
         "recommended_session_type": new_session_type,
-        "awaiting_user_choice": True,
-        "user_replied_to_choice": False,
-        "next_step": "primary_assistant"
+        "awaiting_user_choice": True,  # Flag for the Streamlit app
+        "next_step": END  # End the workflow here to let UI take over
     }
 
 def cassie_entry(state: PrimaryState):
