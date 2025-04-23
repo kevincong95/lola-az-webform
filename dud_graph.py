@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph, START
 from typing import Annotated, Optional
@@ -11,119 +12,64 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize LLM
-llm = ChatOpenAI(temperature=0, model_name="gpt-4")
+llm = ChatOpenAI(temperature=0.7, model_name="gpt-4")
 
 # ------------------ Define State Structure ------------------
 
 class DudState(MessagesState):
     """State for Dud graph, extending MessagesState for message history management."""
     topic: Annotated[str, "The lesson topic"]
-    correct_answers: int
-    mistakes: int
-    golden_bridge: bool
-    current_question: str
-    user_answer: Annotated[str, "User's answer to current question", "input"]
-    awaiting_answer: bool
     summary: str
 
-# ------------------ Define Graph Nodes ------------------
-
-# 1️⃣ Generate Question
-def generate_question(state: DudState) -> DudState:
-    """Generates a challenging multiple-choice question."""
-    question = llm.invoke("Generate a difficult AP CS A multiple-choice question with 5 answer choices.").content
-    
-    messages = state.get("messages", []) + [
-        {"role": "assistant", "content": f"❓ {question}"}
-    ]
-    
-    return {
-        **state,
-        "current_question": question,
-        "messages": messages,
-        "awaiting_answer": True,
-        "user_answer": ""
-    }
-
-# 2️⃣ Check Answer
-def check_answer(state: DudState) -> DudState:
-    """Checks if the user's answer is correct."""
-    if not state.get("user_answer"):
-        return {**state, "awaiting_answer": True}
-    
-    question = state["current_question"]
-    user_answer = state["user_answer"]
-
-    correctness_response = llm.invoke(f"Is '{user_answer}' the correct answer for: {state['current_question']}? Respond with the word correct or incorrect followed by an explanation.").content
-    
-    is_correct = correctness_response.lower().startswith('correct')
-    
-    correct_answers = state.get("correct_answers", 0) + int(is_correct)
-    mistakes = state.get("mistakes", 0) + 1 - int(is_correct)
-    
-    messages = state["messages"] + [
-        {"role": "user", "content": user_answer},
-        {"role": "assistant", "content": correctness_response}
-    ]
-    
-    # Check if we should generate a summary
-    if mistakes >= 4 or (correct_answers >= 10 and mistakes <= 3):
-        if correct_answers >= 10 and mistakes <= 3:
-            # Golden Bridge passed
-            summary = llm.invoke("Generate a summary congratulating the student for passing the Golden Bridge challenge and preparing them for the final test.").content
+def chat_node(state: DudState):
+    if not state.get("messages", []):
+        prompt = f"""
+        You are a helpful teaching assistant. You are speaking to an 8th or 9th grade student in AP Computer Science.
+        Give the student multiple choice questions, one at a time, on the topic of {state.get('topic', 'What is a computer')}.
+        IMPORTANT: This is an interactive session. Wait for the student's response before proceeding.
+        If the student answers the question, give feedback regardless of whether their answer is correct or incorrect.
+        If the student asks for clarification regarding quiz question, answer it. Otherwise redirect them back to the quiz.
+        The quiz ends when the student gets 15 questions correct or 3 questions wrong, whichever occurs first. Also let the student know they can end the quiz by typing 'quit' or 'exit'.
+        When you end the quiz, generate a summary of the student's strengths and weaknesses with the header QUIZ SUMMARY in capital letters.
+        """
+        state["messages"].append(SystemMessage(content=prompt))
+    last_message = state["messages"][-1] if state["messages"] else None
+    if not isinstance(last_message, AIMessage):
+        # If we've created a lesson plan, tell the user
+        system_content = "You are a helpful teaching assistant giving a quiz to an 8th or 9th grade student in AP Computer Science."
+        
+        if last_message.content in ['exit', 'quit']:
+            summary_prompt = """The student has exited the quiz early. 
+            Summarize the quiz based on the following dialogue. 
+            Highlight the student's strengths and weaknesses.
+            Try to take into account why they may have ended the quiz early."""
+            for message in state["messages"]:
+                if isinstance(message, HumanMessage):
+                    summary_prompt += f"Student: {message.content}" + "\n"
+                elif isinstance(message, AIMessage):
+                    summary_prompt += f"AI: {message.content}" + "\n"
+                else:
+                    summary_prompt += f"System: {message.content}" + "\n"
+            summary = llm.invoke(summary_prompt)
+            state["summary"] = summary.content
+            state["messages"].append(AIMessage(content=summary.content))
         else:
-            # Too many mistakes
-            summary = llm.invoke("Summarize the student's mistakes and what needs improvement.").content
-        
-        messages.append({"role": "assistant", "content": f"📄 **Summary:** {summary}"})
-        
-        return {
-            **state,
-            "messages": messages,
-            "correct_answers": correct_answers,
-            "mistakes": mistakes,
-            "user_answer": "",
-            "awaiting_answer": False,
-            "summary": summary
-        }
+            response = llm.invoke([SystemMessage(content=system_content)] + state["messages"])
+            state["messages"].append(AIMessage(content=response.content))
+            if "quiz summary" in response.content.lower() and not state.get("summary", ""):
+                state["summary"] = response.content.split("QUIZ SUMMARY")[1]
     
-    return {
-        **state,
-        "messages": messages,
-        "correct_answers": correct_answers,
-        "mistakes": mistakes,
-        "user_answer": "",
-        "awaiting_answer": False
-    }
+    return state
 
-# Define flow control functions
-def should_continue(state: DudState):
-    if state.get("awaiting_answer", False):
-        return END
-    if state.get("summary", False):
-        return END
-    
-    return "generate_question"
+def build_graph():
+    workflow = StateGraph(DudState)
 
-# Define a function to determine the starting point
-def get_entry_point(state: DudState):
-    if state.get("user_answer", "") and not state.get("awaiting_answer", False):
-        return "check_answer"  # Resume from check_answer if we have a user answer
-    else:
-        return "generate_question"  # Start from the beginning for a new session
+    # Add nodes
+    workflow.add_node("chat_node", chat_node)
+    workflow.add_edge(START, "chat_node")
+    workflow.add_edge("chat_node", END)
 
-# ------------------ Define Graph ------------------
+    # Compile the graph
+    return workflow.compile()
 
-dud_graph = StateGraph(DudState)
-
-# Add nodes
-dud_graph.add_node("generate_question", generate_question)
-dud_graph.add_node("check_answer", check_answer)
-
-# Define edges
-dud_graph.add_conditional_edges(START, get_entry_point)
-dud_graph.add_edge("generate_question", "check_answer")
-dud_graph.add_conditional_edges("check_answer", should_continue)
-
-# Compile the graph
-dud_graph = dud_graph.compile()
+dud_graph = build_graph()

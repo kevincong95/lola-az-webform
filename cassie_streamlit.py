@@ -86,11 +86,6 @@ def start_new_session(topic, session_type, template_file=None):
         except Exception as e:
             st.error(f"Error loading template: {e}")
     
-    # Add initial message
-    initial_message = f"I want to {'learn about' if session_type == 'lesson' else 'take a quiz on'} {topic}"
-    st.session_state.messages.append({"role": "user", "content": initial_message})
-    st.session_state.state["messages"].append(HumanMessage(content=initial_message))
-    
     # Update primary graph state with initial message and invoke it
     new_state = primary_graph.invoke(st.session_state.state)
     st.session_state.state = new_state
