@@ -35,9 +35,6 @@ def chat_node(state: DudState):
         state["messages"].append(SystemMessage(content=prompt))
     last_message = state["messages"][-1] if state["messages"] else None
     if not isinstance(last_message, AIMessage):
-        # If we've created a lesson plan, tell the user
-        system_content = "You are a helpful teaching assistant giving a quiz to an 8th or 9th grade student in AP Computer Science."
-        
         if last_message.content in ['exit', 'quit']:
             summary_prompt = """The student has exited the quiz early. 
             Summarize the quiz based on the following dialogue. 
@@ -52,10 +49,10 @@ def chat_node(state: DudState):
                     summary_prompt += f"System: {message.content}" + "\n"
             summary = llm.invoke(summary_prompt)
             state["summary"] = summary.content
-            state["messages"].append(AIMessage(content=summary.content))
+            state["messages"].append(summary)
         else:
-            response = llm.invoke([SystemMessage(content=system_content)] + state["messages"])
-            state["messages"].append(AIMessage(content=response.content))
+            response = llm.invoke(state["messages"])
+            state["messages"].append(response)
             if "quiz summary" in response.content.lower() and not state.get("summary", ""):
                 state["summary"] = response.content.split("QUIZ SUMMARY")[1]
     

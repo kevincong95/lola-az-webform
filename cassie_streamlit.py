@@ -211,10 +211,7 @@ if user_input:
                 current_state["subgraph_state"] = {
                     "topic": current_state.get("user_topic", ""),
                     "messages": [HumanMessage(content=user_input)],
-                    "correct_answers": 0,
-                    "mistakes": 0,
-                    "awaiting_answer": False,
-                    "user_answer": user_input
+                    "summary": None
                 }
     
     # Continue the graph with the user's input
