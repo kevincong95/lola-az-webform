@@ -154,7 +154,6 @@ if user_input:
             st.session_state.messages.append({"role": "assistant", "content": message})
             
             # Start a new session using the recommended session type
-            # Pass the stored template file from session state
             start_new_session(user_topic, new_session_type, st.session_state.template_file)
             
             # Clear awaiting_user_choice flag
@@ -182,6 +181,9 @@ if user_input:
             with st.chat_message("assistant"):
                 st.write("I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session.")
             st.session_state.messages.append({"role": "assistant", "content": "I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."})
+        
+        # Important: Skip graph invocation when handling user choice
+        st.rerun()
     
     # Update state with user's message
     current_state = st.session_state.state.copy()
