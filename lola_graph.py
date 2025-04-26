@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState, StateGraph, START, END
 
-from lesson_plan import lesson_graph, LessonState
+from cassie_graph import lesson_graph, LessonState
 from dud_graph import dud_graph, DudState
 
 class PrimaryState(MessagesState):
