@@ -16,6 +16,7 @@ class PrimaryState(MessagesState):
     session_type: Literal["lesson", "quiz"]  # Tracks subgraph type
     subgraph_state: Union[LessonState, DudState, None]  # Active subgraph state
     next_step: Optional[Literal["cassie_entry", "dud_entry", "summarize_and_route"]]
+    recommended_session_type: Literal["lesson", "quiz"]
 
 
 llm = ChatOpenAI(temperature=0, model_name="gpt-4")
@@ -112,6 +113,14 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
     """
     
     decision = llm.invoke(prompt).content.strip().lower()
+    
+    # Default to opposite of current session type if decision is unclear
+    current_session_type = state.get("session_type", "lesson")
+    if decision not in ["lesson", "quiz"]:
+        # If the model doesn't give a clear answer, switch to the opposite type
+        new_session_type = "quiz" if current_session_type == "lesson" else "lesson"
+    else:
+        new_session_type = decision
     
     # Create a message that includes the summary and routing decision, with options for the user
     if "quiz" in decision:

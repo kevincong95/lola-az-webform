@@ -140,12 +140,10 @@ if user_input:
     # Special handling for choice after summary
     if st.session_state.state.get("awaiting_user_choice", False):
         user_choice = user_input.lower()
-        current_state = st.session_state.state.copy()
-        
         if "continue" in user_choice:
             # User wants to continue with recommended session
-            new_session_type = current_state.get("recommended_session_type", "lesson")
-            user_topic = current_state.get("user_topic", "")
+            new_session_type = st.session_state.state.get("recommended_session_type", "lesson")
+            user_topic = st.session_state.state.get("user_topic", "")
             
             # Display confirmation message
             with st.chat_message("assistant"):
@@ -153,11 +151,11 @@ if user_input:
                 st.write(message)
             st.session_state.messages.append({"role": "assistant", "content": message})
             
+            # Clear awaiting_user_choice flag BEFORE starting a new session
+            st.session_state.state["awaiting_user_choice"] = False
+            
             # Start a new session using the recommended session type
             start_new_session(user_topic, new_session_type, st.session_state.template_file)
-            
-            # Clear awaiting_user_choice flag
-            st.session_state.state["awaiting_user_choice"] = False
             
             st.rerun()
                 
