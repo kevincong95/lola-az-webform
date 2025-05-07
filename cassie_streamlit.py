@@ -138,7 +138,10 @@ def convert_to_streamlit_messages(langgraph_messages):
 # Function to start a new session
 def start_new_session(current_topic, previous_topic, session_type, template_file=None):
     # Reset state for new session
-    squads_ready = st.session_state.login_time - st.session_state.user_data["last_login"] < timedelta(days = 2) or not previous_topic
+    squads_ready = st.session_state.state["squads_ready"] or st.session_state.login_time - st.session_state.user_data["last_login"] < timedelta(days = 2) or not previous_topic
+    if not squads_ready:
+        with st.chat_message('assistant'):
+            st.write(f"Uh-oh! Looks like your squads have fallen asleep! We'll have to wake them up with a review on {previous_topic}.")
     st.session_state.messages = []
     st.session_state.state = {
         "user_topic": current_topic,
@@ -173,7 +176,6 @@ def start_new_session(current_topic, previous_topic, session_type, template_file
             st.session_state.state["subgraph_state"] = lesson_state
         except Exception as e:
             st.error(f"Error loading template: {e}")
-    
     # Update primary graph state with initial message and invoke it
     new_state = primary_graph.invoke(st.session_state.state)
     st.session_state.state = new_state
