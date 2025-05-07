@@ -150,7 +150,7 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
 
     **What would you like to do?**
     - Reply with "Continue" to proceed with the {new_session_type}
-    - Reply with "Exit" to end this session
+    - Reply with "Exit" or click on "Logout" to end this session
     """
     
     # Create new subgraph state with the message

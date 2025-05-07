@@ -57,6 +57,7 @@ def check_password():
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
             
+            #TODO: workflow to create new user, take placement test
             if st.button("Login"):
                 # Connect to MongoDB
                 client = get_mongodb_connection()
@@ -200,6 +201,20 @@ def main():
     previous_topic = st.session_state.user_data['previous_topic']
     st.write(f"Press 'Start Session' to begin your session on either {user_topic} or {previous_topic}.")
 
+    # Add a small user info section at the top right
+    with st.sidebar:
+        st.info(f"Logged in as: {st.session_state.username}")
+        
+        # Add logout button at the top of sidebar
+        if st.button("Logout"):
+            # Clear authentication status and user data
+            st.session_state.authentication_status = False
+            st.session_state.username = ""
+            st.session_state.user_data = {}
+            st.session_state.messages = []
+            # Rerun to show login page
+            st.rerun()
+
     # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -282,20 +297,14 @@ def main():
                 st.rerun()
                     
             elif "exit" in user_choice:
-                # User wants to exit
-                with st.chat_message("assistant"):
-                    st.write("Thank you for your time! The session has ended. You can start a new session whenever you're ready.")
-                st.session_state.messages.append({"role": "assistant", "content": "Thank you for your time! The session has ended. You can start a new session whenever you're ready."})
-                
-                # Reset state
-                st.session_state.state = {
-                    "user_topic": "",
-                    "messages": [],
-                    "subgraph_state": None,
-                    "session_type": "lesson",
-                    "next_step": None,
-                    "awaiting_user_choice": False
-                }
+                # User wants to exit; clear authentication status and user data
+                # TODO: write message history to long term memory
+                st.session_state.authentication_status = False
+                st.session_state.username = ""
+                st.session_state.user_data = {}
+                st.session_state.messages = []
+                # Rerun to show login page
+                st.rerun()
             else:
                 # User provided something else
                 with st.chat_message("assistant"):
