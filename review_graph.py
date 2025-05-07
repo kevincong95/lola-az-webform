@@ -36,7 +36,6 @@ def chat_node(state: ReviewState):
         If they get fewer than 8 questions correct, recommend that the student repeat the lesson on {topic}.
         """
         state["messages"].append(SystemMessage(content=prompt))
-    print(state["messages"])
     last_message = state["messages"][-1] if state["messages"] else None
     if not isinstance(last_message, AIMessage):
         response = llm.invoke(state["messages"])

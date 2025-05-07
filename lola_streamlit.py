@@ -46,70 +46,75 @@ def check_password():
     if "user_data" not in st.session_state:
         st.session_state.user_data = {}
     
-    # If authentication has already succeeded, return True
     if st.session_state.authentication_status:
         return True
     
-    # Create login form
-    st.header("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    
-    if st.button("Login"):
-        # Connect to MongoDB
-        client = get_mongodb_connection()
-        
-        if client is None:
-            st.error("Could not connect to database. Please try again later.")
-            return False
-        
-        try:
-            # Access your database and collection
-            db = client[os.getenv("MONGO_DB_NAME")]  # Replace with your database name
-            users_collection = db['students']  # Replace with your collection name
+    # If not authenticated, show login form in a container
+    # This container will be emptied/replaced after successful login
+    with st.container():
+        if not st.session_state.authentication_status:
+            st.header("Login")
+            username = st.text_input("Username", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
             
-            # Find the user
-            user = users_collection.find_one({"username": username})
-            
-            if user:
-                # Hash the input password with the same method as stored in your DB
-                # This example assumes passwords are stored with SHA-256
-                # Adjust according to your actual password storage method
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            if st.button("Login"):
+                # Connect to MongoDB
+                client = get_mongodb_connection()
                 
-                # For hashed passwords (better security)
-                stored_password = user['password_hash']
-                is_password_correct = (hashed_password == stored_password)
-                
-                if is_password_correct:
-                    st.session_state.authentication_status = True
-                    st.session_state.username = username
-                    st.session_state.login_time = datetime.now()
-                    # Store user data in session state for later use
-                    st.session_state.user_data = {
-                        "username": user.get('username', username),
-                        "last_login": user.get('last_login', st.session_state.login_time),
-                        "current_topic": user.get('current_topic', 'What is a computer?'),
-                        "previous_topic": user.get('previous_topic', '')
-                    }
-                    
-                    st.success(f"Welcome, {st.session_state.user_data['username']}!")
-                    return True
-                else:
-                    st.error("Password is incorrect")
+                if client is None:
+                    st.error("Could not connect to database. Please try again later.")
                     return False
-            else:
-                st.error("Username not found")
-                return False
                 
-        except Exception as e:
-            st.error(f"Authentication error: {e}")
-            return False
-        finally:
-            # Close MongoDB connection
-            client.close()
-    else:
-        return False
+                try:
+                    # Access your database and collection
+                    db = client[os.getenv("MONGO_DB_NAME")]
+                    users_collection = db['students']
+                    
+                    # Find the user
+                    user = users_collection.find_one({"username": username})
+                    
+                    if user:
+                        # Hash the input password with the same method as stored in your DB
+                        # This example assumes passwords are stored with SHA-256
+                        # Adjust according to your actual password storage method
+                        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                        
+                        # For hashed passwords (better security)
+                        stored_password = user['password_hash']
+                        is_password_correct = (hashed_password == stored_password)
+                        
+                        if is_password_correct:
+                            st.session_state.authentication_status = True
+                            st.session_state.username = username
+                            st.session_state.login_time = datetime.now()
+                            
+                            # Store user data in session state for later use
+                            st.session_state.user_data = {
+                                "username": user.get('username', username),
+                                "last_login": user.get('last_login', st.session_state.login_time),
+                                "current_topic": user.get('current_topic', 'What is a computer?'),
+                                "previous_topic": user.get('previous_topic', '')
+                            }
+                            
+                            # Use success message temporarily before rerun
+                            st.success(f"Welcome, {st.session_state.username}!")
+                            # Rerun to clear the login form and show main app
+                            st.rerun()
+                        else:
+                            st.error("Password is incorrect")
+                            return False
+                    else:
+                        st.error("Username not found")
+                        return False
+                        
+                except Exception as e:
+                    st.error(f"Authentication error: {e}")
+                    return False
+                finally:
+                    # Close MongoDB connection
+                    client.close()
+    
+    return st.session_state.authentication_status
 
 # Convert Streamlit chat format to Langgraph format
 def convert_to_langgraph_messages(streamlit_messages):
@@ -190,7 +195,7 @@ def start_new_session(current_topic, previous_topic, session_type, template_file
 
 def main():
     st.title("🎓 AI-Powered Tutoring System")
-    st.write(f"Welcome back, {st.session_state.user_data['username']}! Lola hasn't seen you since {st.session_state.user_data['last_login']}. ")
+    st.write(f"Welcome back, {st.session_state.username}! Lola hasn't seen you since {st.session_state.user_data['last_login']}. ")
     user_topic = st.session_state.user_data['current_topic']
     previous_topic = st.session_state.user_data['previous_topic']
     st.write(f"Press 'Start Session' to begin your session on either {user_topic} or {previous_topic}.")
@@ -376,7 +381,14 @@ if __name__ == "__main__":
             "db_name": os.getenv("MONGO_DB_NAME"),
             "users_collection": "students"
         }
-            
+
+    st.set_page_config(
+        page_title="AI Tutoring System",
+        page_icon="🎓",
+        layout="centered",
+        initial_sidebar_state="auto"
+    )
+
     # Show the login page first
     if check_password():
         # If authentication is successful, show the main application
