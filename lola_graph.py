@@ -36,8 +36,6 @@ def primary_assistant(state: PrimaryState):
             default_state = {
                 "topic": topic,
                 "messages": state.get("messages", []),
-                "template": None,
-                "template_path": None,
                 "lesson_plan": None,
                 "summary": None
             }

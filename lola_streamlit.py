@@ -143,7 +143,7 @@ def convert_to_streamlit_messages(langgraph_messages):
     return streamlit_messages
 
 # Function to start a new session
-def start_new_session(current_topic, previous_topic, session_type, template_file=None):
+def start_new_session(current_topic, previous_topic, session_type):
     # Reset state for new session
     squads_ready = st.session_state.state["squads_ready"] or st.session_state.login_time - st.session_state.user_data["last_login"] < timedelta(days = 2) or not previous_topic
     if not squads_ready:
@@ -161,29 +161,16 @@ def start_new_session(current_topic, previous_topic, session_type, template_file
         "remaining_steps": 5
     }
     
-    # Handle template if uploaded (for lesson sessions)
-    if template_file is not None and session_type == "lesson":
-        # Create a temporary file to store the uploaded template
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
-            tmp_file.write(template_file.getvalue())
-            template_path = tmp_file.name
-        
-        # Read the template to add to state
-        try:
-            with open(template_path, 'r') as f:
-                template_content = json.load(f)
-                
-            # Prepare lesson state
-            lesson_state = {
-                "topic": current_topic,
-                "messages": [],
-                "template": template_content,
-                "template_path": template_path,
-                "lesson_plan": None
-            }
-            st.session_state.state["subgraph_state"] = lesson_state
-        except Exception as e:
-            st.error(f"Error loading template: {e}")
+    # Handle lesson sessions
+    if session_type == "lesson":     
+        # Prepare lesson state
+        lesson_state = {
+            "topic": current_topic,
+            "messages": [],
+            "lesson_plan": None,
+            "summary": None
+        }
+        st.session_state.state["subgraph_state"] = lesson_state
     # Update primary graph state with initial message and invoke it
     new_state = primary_graph.invoke(st.session_state.state)
     st.session_state.state = new_state
@@ -227,15 +214,10 @@ def main():
             "previous_topic": previous_topic,
             "messages": [],
             "squads_ready": False,
-            "template_path": None,
             "subgraph_state": None,
             "session_type": "lesson",
             "next_step": None
         }
-
-    # Store template file in session state so it persists
-    if "template_file" not in st.session_state:
-        st.session_state.template_file = None
 
     # ------------------ Start Session ------------------
     with st.sidebar:
@@ -249,15 +231,9 @@ def main():
             key="session_type"
         )
         
-        # Optional template upload for lesson plans
-        template_file = st.file_uploader("Optional: Upload a lesson template (JSON file)", type=["json"])
-        
-        # Store template file in session state so it persists
-        if template_file is not None:
-            st.session_state.template_file = template_file
         
         if st.button("Start Session") and user_topic:
-            start_new_session(user_topic, previous_topic, session_type, st.session_state.template_file)
+            start_new_session(user_topic, previous_topic, session_type)
             st.rerun()
 
     # ------------------ Display Chat Messages ------------------
@@ -294,7 +270,7 @@ def main():
                 st.session_state.state["awaiting_user_choice"] = False
                 
                 # Start a new session using the recommended session type
-                start_new_session(user_topic, previous_topic, new_session_type, st.session_state.template_file)
+                start_new_session(user_topic, previous_topic, new_session_type)
                 
                 st.rerun()
                     
@@ -368,18 +344,6 @@ def main():
                     break
         
         st.rerun()
-
-# Cleanup temporary files when the app is closed
-def cleanup_temp_files():
-    if st.session_state.state.get("subgraph_state") and st.session_state.state["subgraph_state"].get("template_path") and os.path.exists(st.session_state.state["subgraph_state"]["template_path"]):
-        try:
-            os.remove(st.session_state.state["subgraph_state"]["template_path"])
-        except:
-            pass
-
-# Register cleanup function
-import atexit
-atexit.register(cleanup_temp_files)
 
 # ============================================
 # Main Execution

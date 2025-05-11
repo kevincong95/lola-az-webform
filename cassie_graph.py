@@ -51,7 +51,6 @@ def chat_node(state: LessonState) -> LessonState:
         messages = [system] + state["messages"]
         response = llm.invoke(messages)
     state["messages"].append(response)
-    print(state["messages"])
     return state
 
 def tool_executor(state: LessonState) -> LessonState:
