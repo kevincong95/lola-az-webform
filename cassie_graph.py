@@ -1,123 +1,145 @@
 import os
-from typing import Dict, Any, List
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+import tools
+
+from dotenv import load_dotenv
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
-import json
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import END, MessagesState, START, StateGraph
+from typing import List
 
 # Load environment variables
-from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize the language model
+cassie_tools = [tools.fetch_lesson_plan, tools.generate_summary]
 llm = ChatOpenAI(
     model_name="gpt-4",
     temperature=0.7,
     api_key=os.getenv("OPENAI_API_KEY")
-)
+).bind_tools(cassie_tools)
 
 # Define the state structure
-class LessonState(dict):
+class LessonState(MessagesState):
     """The state of our graph."""
     topic: str
     messages: List[BaseMessage]
-    template: Dict[str, Any] | None
-    template_path: str | None
     lesson_plan: str | None
     summary: str | None
-
-# Function to read JSON template
-def read_json_template(file_path: str) -> Dict[str, Any] | str:
-    """Read the JSON template file and return its contents"""
-    try:
-        with open(file_path, 'r') as file:
-            return json.load(file)
-    except Exception as e:
-        return f"Error reading template file: {str(e)}"
-
-# Node functions
-def load_template(state: LessonState) -> LessonState:
-    """Load the template from the file path."""
-    if state.get("template_path"):
-        template = read_json_template(state["template_path"])
-        if isinstance(template, dict):
-            state["template"] = template
-        else:
-            # It's an error message
-            state["template"] = None
-            # Add an error message to the conversation
-            state["messages"].append(AIMessage(content=f"I couldn't load that template. {template}"))
-    
-    return state
 
 def chat_node(state: LessonState) -> LessonState:
     """Handle regular chat interactions."""
     # Get the last message
+    system = SystemMessage(content="""You are giving a 1-1 online tutoring session to teach a student in 8th or 9th grade. 
+        IMPORTANT:
+        - Your explanations must be appropriate for a middle school student's age and skill level.
+        - This is an interactive session. Only do one part at a time.
+        - Do not move to the next part until the student says they are ready.
+        - After each teaching point, ask all the corresponding comprehension check questions at once.
+        - If the student gets all the questions correct, move to the next teaching point.
+        - If the student gets any questions wrong, explain the teaching point in a different way, emphasizing their mistakes.
+        - If the student fails to clear the teaching point in 2 attempts, or if they say "quit" or "exit", end the lesson early.
+        - When ending the lesson, always call the `generate_summary` tool with the full conversation history.
+        """)
     if not state.get("messages", []):
-        template_str = json.dumps(state["template"], indent=2)
-        
-        prompt = f"""
-        <lesson_plan>
-        {template_str}
-        </lesson_plan>
+        initial = HumanMessage(content=f"""
+        The topic for today is: {state.get('topic', 'What is a computer')}.
 
-        You are a helpful teaching assistant. You are speaking to an 8th or 9th grade student.
-        Execute the provided lesson plan in a 1-1 online tutoring setting to teach the student this topic: {state.get('topic', 'What is a computer')}.
-        IMPORTANT: This is an interactive session. Only do one part at a time. Wait for the student's response before proceeding to any other part. Do not move to the next part until the student says they are ready. 
-        When going through each individual teaching point, make sure to ask all the corresponding comprehension check questions at once. 
-        If the student gets all the questions correct, move to the next teaching point. Otherwise, explain the teaching point in a different way, emphasizing the student's mistakes. 
-        If the student isn't able to clear the teaching point in 2 attempts, just end the lesson.
-        """
+        Before you begin the lesson, check whether a lesson plan already exists. If not, fetch one using the `fetch_lesson_plan` tool.
+        """)
+        response = llm.invoke([system, initial])
+    else:
+        messages = [system] + state["messages"]
+        response = llm.invoke(messages)
+    state["messages"].append(response)
+    print(state["messages"])
+    return state
+
+def tool_executor(state: LessonState) -> LessonState:
+    """Process tool calls in the messages."""
+    # Find the last message with tool calls
+    last_message = None
+    for msg in reversed(state["messages"]):
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            last_message = msg
+            break
+    
+    if not last_message or not last_message.tool_calls:
+        return state
+    
+    # Get available tools as a dictionary
+    tool_dict = {tool.name: tool for tool in cassie_tools}
+    
+    # Process each tool call
+    for tool_call in last_message.tool_calls:
+        tool_name = tool_call.get("name")
+        tool_args = tool_call.get("args", {})
+        tool_id = tool_call.get("id")
         
-        result = llm.invoke([SystemMessage(content="You are a helpful teaching assistant."), 
-                      HumanMessage(content=prompt)])
-        
-        state["lesson_plan"] = result.content
-        state["messages"].append(SystemMessage(content=prompt))
-    last_message = state["messages"][-1] if state["messages"] else None
-    if not isinstance(last_message, AIMessage):
-        # If we've created a lesson plan, tell the user
-        system_content = "You are a helpful teaching assistant."
-        if state.get("lesson_plan"):
-            system_content += f" You have already created a lesson plan for the user: {state.get('lesson_plan')}"
-        
-        if last_message.content in ['exit', 'quit']:
-            summary_prompt = "Summarize the lesson based on the following dialogue. Highlight the student's strengths and weaknesses. "
-            for message in state["messages"]:
-                if isinstance(message, HumanMessage):
-                    summary_prompt += f"Student: {message.content}" + "\n"
-                elif isinstance(message, AIMessage):
-                    summary_prompt += f"AI: {message.content}" + "\n"
-                else:
-                    summary_prompt += f"System: {message.content}" + "\n"
-            summary = llm.invoke(summary_prompt)
-            state["summary"] = summary.content
-            state["messages"].append(summary)
-        else:
-            response = llm.invoke([SystemMessage(content=system_content)] + state["messages"])
-            state["messages"].append(response)
+        # Generic tool execution
+        try:
+            if tool_name in tool_dict:
+                # Get the tool function
+                tool_fn = tool_dict[tool_name]
+                
+                # Execute the tool - BaseTool expects a single argument, not kwargs
+                # This handles both function tools and class-based tools
+                result = tool_fn(tool_args)
+                
+                # Create tool message with result
+                tool_message = ToolMessage(
+                    content=result,
+                    name=tool_name,
+                    tool_call_id=tool_id
+                )
+                state["messages"].append(tool_message)
+                
+                # Store lesson plan or summary in state
+                if tool_name == "fetch_lesson_plan":
+                    state["lesson_plan"] = result
+                if tool_name == "generate_summary":
+                    state["summary"] = result
+            else:
+                # Tool not found
+                tool_message = ToolMessage(
+                    content=f"Error: Tool '{tool_name}' not found in available tools.",
+                    name=tool_name,
+                    tool_call_id=tool_id
+                )
+                state["messages"].append(tool_message)
+        except Exception as e:
+            # Error handling for tool execution
+            tool_message = ToolMessage(
+                content=f"Error executing {tool_name}: {str(e)}",
+                name=tool_name,
+                tool_call_id=tool_id
+            )
+            state["messages"].append(tool_message)
     
     return state
 
-def routing_function(state):
-    if state.get("template", None):
-        return "chat_node"
-    return "load_template"
+def should_use_tools(state: LessonState):
+    """Check if the last message has tool calls."""
+    last_msg = state["messages"][-1]
+    if isinstance(last_msg, AIMessage) and hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+        return "tools"
+    if isinstance(last_msg, ToolMessage):
+        return "chat"
+    return END
 
 # Build the graph
 def build_graph():
     workflow = StateGraph(LessonState)
     
     # Add nodes
-    workflow.add_node("chat_node", chat_node)
-    workflow.add_node("load_template", load_template)
+    workflow.add_node("chat", chat_node)
+    workflow.add_node("tools", tool_executor)
     
     # Set up the edges
-    workflow.add_conditional_edges(START, routing_function)
-    workflow.add_edge("load_template", "chat_node")
-    workflow.add_edge("chat_node", END)
+    workflow.add_edge(START, "chat")
+    workflow.add_conditional_edges("chat", should_use_tools)
+    workflow.add_edge("tools", "chat")
     
-    return workflow.compile()
+    return workflow.compile(name='Cassie')
 
 # Create the graph
 lesson_graph = build_graph()

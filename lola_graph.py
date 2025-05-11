@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Optional, Union, Dict, Any
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState, StateGraph, START, END
+from langgraph_supervisor import create_supervisor
 
 from cassie_graph import lesson_graph, LessonState
 from dud_graph import dud_graph, DudState
@@ -19,6 +20,7 @@ class PrimaryState(MessagesState):
     subgraph_state: Union[LessonState, DudState, ReviewState, None]  # Active subgraph state
     next_step: Optional[Literal["cassie_entry", "dud_entry", "review_entry", "summarize_and_route"]]
     recommended_session_type: Literal["lesson", "quiz"]
+    remaining_steps: int
 
 
 llm = ChatOpenAI(temperature=0.7, model_name="gpt-4")
@@ -164,6 +166,7 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
     return {
         **state,
         "message": message,  # For direct display in UI
+        "user_topic": new_topic,
         "squads_ready": True, # No need to do another review
         "subgraph_state": new_subgraph_state,
         "recommended_session_type": new_session_type,

@@ -6,8 +6,9 @@ import hashlib
 
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from pymongo import MongoClient
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from pymongo import MongoClient
+
 from lola_graph import primary_graph
 
 load_dotenv()
@@ -156,7 +157,8 @@ def start_new_session(current_topic, previous_topic, session_type, template_file
         "session_type": session_type,
         "squads_ready": squads_ready,
         "subgraph_state": None,
-        "next_step": None
+        "next_step": None,
+        "remaining_steps": 5
     }
     
     # Handle template if uploaded (for lesson sessions)
