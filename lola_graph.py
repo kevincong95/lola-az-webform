@@ -1,14 +1,16 @@
-import time
+import os
 
-from typing import Annotated, Literal, Optional, Union, Dict, Any
-from langchain_core.messages import AIMessage, HumanMessage
+from dotenv import load_dotenv
+from typing import Literal, Optional, Union, Dict, Any
+from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState, StateGraph, START, END
-from langgraph_supervisor import create_supervisor
 
 from cassie_graph import lesson_graph, LessonState
 from dud_graph import dud_graph, DudState
 from review_graph import review_graph, ReviewState
+
+load_dotenv()
 
 class PrimaryState(MessagesState):
     """Global state for the tutoring assistant."""
@@ -23,7 +25,11 @@ class PrimaryState(MessagesState):
     remaining_steps: int
 
 
-llm = ChatOpenAI(temperature=0.7, model_name="gpt-4")
+llm = ChatOpenAI(
+    temperature=0.7, 
+    model_name="gpt-4", 
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 def primary_assistant(state: PrimaryState):
     """Handles user messages and determines the next step."""

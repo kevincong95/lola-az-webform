@@ -1,14 +1,11 @@
 import json, os
+import utils
 
-from dotenv import load_dotenv
 from langchain_community.document_loaders.mongodb import MongodbLoader
 from langchain_core.tools import tool
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from typing import List
-
-# Load environment variables
-load_dotenv()
 
 # Initialize the language model
 llm = ChatOpenAI(
@@ -16,10 +13,6 @@ llm = ChatOpenAI(
     temperature=0.7,
     api_key=os.getenv("OPENAI_API_KEY")
 )
-
-# MongoDB connection configuration
-CONNECTION_STRING = f"mongodb+srv://{os.getenv('MONGO_USERNAME')}:{os.getenv('MONGO_PASSWORD')}@{os.getenv('MONGO_CLUSTER')}/?retryWrites=true&w=majority&appName={os.getenv('MONGO_APP_NAME')}" 
-DB_NAME = os.getenv("MONGO_DB_NAME")
 
 
 @tool
@@ -33,8 +26,8 @@ def fetch_lesson_plan(topic: str):
     
     try:
         loader = MongodbLoader(
-            connection_string=CONNECTION_STRING,
-            db_name=DB_NAME,
+            connection_string=utils.CONNECTION_STRING,
+            db_name=utils.MONGO_DB_NAME,
             collection_name="lesson_templates",
             filter_criteria={"topic_name": topic},
             field_names=["template"]

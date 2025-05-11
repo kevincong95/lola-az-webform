@@ -1,18 +1,20 @@
+import os
+
 from dotenv import load_dotenv
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph, START
-from typing import Annotated, Optional
-import os
+from typing import Annotated
 
 # Load environment variables from .env
 load_dotenv()
 
-# Retrieve API key from environment
-api_key = os.getenv("OPENAI_API_KEY")
-
 # Initialize LLM
-llm = ChatOpenAI(temperature=0.7, model_name="gpt-4")
+llm = ChatOpenAI(
+    temperature=0.7, 
+    model_name="gpt-4", 
+    api_key = os.getenv("OPENAI_API_KEY")
+)
 
 # ------------------ Define State Structure ------------------
 
@@ -67,6 +69,6 @@ def build_graph():
     workflow.add_edge("chat_node", END)
 
     # Compile the graph
-    return workflow.compile()
+    return workflow.compile(name='Dud')
 
 dud_graph = build_graph()

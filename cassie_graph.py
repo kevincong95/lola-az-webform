@@ -82,7 +82,7 @@ def tool_executor(state: LessonState) -> LessonState:
                 
                 # Execute the tool - BaseTool expects a single argument, not kwargs
                 # This handles both function tools and class-based tools
-                result = tool_fn(tool_args)
+                result = tool_fn.invoke(tool_args)
                 
                 # Create tool message with result
                 tool_message = ToolMessage(

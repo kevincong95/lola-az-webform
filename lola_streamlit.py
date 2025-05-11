@@ -1,19 +1,13 @@
+import hashlib, os
 import streamlit as st
-import tempfile
-import json
-import os
-import hashlib
+import utils
 
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from pymongo import MongoClient
 
 from lola_graph import primary_graph
 
-load_dotenv()
-# Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-connection_string = f"mongodb+srv://{os.getenv("MONGO_USERNAME")}:{os.getenv("MONGO_PASSWORD")}@{os.getenv("MONGO_CLUSTER")}/?retryWrites=true&w=majority&appName={os.getenv("MONGO_APP_NAME")}" 
 # ============================================
 # MongoDB Connection Setup
 # ============================================
@@ -69,7 +63,7 @@ def check_password():
                 
                 try:
                     # Access your database and collection
-                    db = client[os.getenv("MONGO_DB_NAME")]
+                    db = utils.MONGO_DB_NAME
                     users_collection = db['students']
                     
                     # Find the user
@@ -118,30 +112,6 @@ def check_password():
     
     return st.session_state.authentication_status
 
-# Convert Streamlit chat format to Langgraph format
-def convert_to_langgraph_messages(streamlit_messages):
-    langgraph_messages = []
-    for msg in streamlit_messages:
-        if msg["role"] == "user":
-            langgraph_messages.append(HumanMessage(content=msg["content"]))
-        elif msg["role"] == "assistant":
-            langgraph_messages.append(AIMessage(content=msg["content"]))
-        elif msg["role"] == "system":
-            langgraph_messages.append(SystemMessage(content=msg["content"]))
-    return langgraph_messages
-
-# Convert Langgraph format to Streamlit chat format
-def convert_to_streamlit_messages(langgraph_messages):
-    streamlit_messages = []
-    for msg in langgraph_messages:
-        if isinstance(msg, HumanMessage):
-            streamlit_messages.append({"role": "user", "content": msg.content})
-        elif isinstance(msg, AIMessage):
-            streamlit_messages.append({"role": "assistant", "content": msg.content})
-        elif isinstance(msg, SystemMessage):
-            streamlit_messages.append({"role": "system", "content": msg.content})
-    return streamlit_messages
-
 # Function to start a new session
 def start_new_session(current_topic, previous_topic, session_type):
     # Reset state for new session
@@ -177,7 +147,7 @@ def start_new_session(current_topic, previous_topic, session_type):
     
     # Preserve messages across graph calls
     if new_state.get("subgraph_state") and new_state["subgraph_state"].get("messages"):
-        st.session_state.messages = convert_to_streamlit_messages(new_state["subgraph_state"]["messages"])
+        st.session_state.messages = utils.convert_to_streamlit_messages(new_state["subgraph_state"]["messages"])
     else:
         # Handle the initial greeting from the primary graph
         if new_state.get("message"):
@@ -352,8 +322,8 @@ if __name__ == "__main__":
     # Store MongoDB connection details in session state if provided
     if "mongodb_config" not in st.session_state:
         st.session_state.mongodb_config = {
-            "uri": connection_string,
-            "db_name": os.getenv("MONGO_DB_NAME"),
+            "uri": utils.CONNECTION_STRING,
+            "db_name": utils.MONGO_DB_NAME,
             "users_collection": "students"
         }
 
