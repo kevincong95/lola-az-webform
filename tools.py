@@ -11,7 +11,7 @@ from typing import List
 llm = ChatOpenAI(
     model_name="gpt-4",
     temperature=0.7,
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=utils.OPENAI_API_KEY
 )
 
 

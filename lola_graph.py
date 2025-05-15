@@ -9,6 +9,7 @@ from langgraph.graph import MessagesState, StateGraph, START, END
 from cassie_graph import lesson_graph, LessonState
 from dud_graph import dud_graph, DudState
 from review_graph import review_graph, ReviewState
+from utils import OPENAI_API_KEY
 
 load_dotenv()
 
@@ -28,7 +29,7 @@ class PrimaryState(MessagesState):
 llm = ChatOpenAI(
     temperature=0.7, 
     model_name="gpt-4", 
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=OPENAI_API_KEY
 )
 
 def primary_assistant(state: PrimaryState):

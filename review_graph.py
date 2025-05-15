@@ -1,19 +1,16 @@
-import os
-
-from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph, START
 from typing import Annotated
 
-# Load environment variables from .env
-load_dotenv()
+from utils import OPENAI_API_KEY
+
 
 # Initialize LLM
 llm = ChatOpenAI(
     temperature=0.7, 
     model_name="gpt-4", 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = OPENAI_API_KEY
 )
 
 # ------------------ Define State Structure ------------------

@@ -1,10 +1,11 @@
-import os
+import streamlit as st
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 # Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-CONNECTION_STRING = f"mongodb+srv://{os.getenv('MONGO_USERNAME')}:{os.getenv('MONGO_PASSWORD')}@{os.getenv('MONGO_CLUSTER')}/?retryWrites=true&w=majority&appName={os.getenv('MONGO_APP_NAME')}" 
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
+CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/?retryWrites=true&w=majority&appName={st.secrets['MONGO_APP_NAME']}" 
+MONGO_DB_NAME = st.secrets["MONGO_DB_NAME"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # Convert Streamlit chat format to Langgraph format
 def convert_to_langgraph_messages(streamlit_messages):

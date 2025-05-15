@@ -1,21 +1,18 @@
-import os
 import tools
 
-from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, START, StateGraph
 from typing import List
 
-# Load environment variables
-load_dotenv()
+from utils import OPENAI_API_KEY
 
 # Initialize the language model
 cassie_tools = [tools.fetch_lesson_plan, tools.generate_summary]
 llm = ChatOpenAI(
     model_name="gpt-4",
     temperature=0.7,
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=OPENAI_API_KEY
 ).bind_tools(cassie_tools)
 
 # Define the state structure
