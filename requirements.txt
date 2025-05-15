@@ -1,6 +1,6 @@
 langchain-core>=0.1.15
 langchain-openai>=0.0.5
-langgraph>=0.0.25
+langgraph==0.3.17
 pymongo>=4.12.1
 python-dotenv>=1.0.0
 streamlit>=1.28.0
