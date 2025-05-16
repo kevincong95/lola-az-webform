@@ -17,12 +17,11 @@ def get_mongodb_connection():
         st.error("No MongoDB connection provided.")
         return None
     try:
-        from ssl import CERT_NONE
         import certifi
         client = MongoClient(
             st.session_state.mongodb_config["uri"],
-            ssl=True,
-            ssl_cert_reqs=CERT_NONE,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
             tlsCAFile=certifi.where(),
             connectTimeoutMS=30000,
             socketTimeoutMS=30000,
