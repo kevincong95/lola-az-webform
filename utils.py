@@ -4,10 +4,11 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pymongo import MongoClient
 
 # Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/?retryWrites=true&w=majority&appName={st.secrets['MONGO_APP_NAME']}&ssl=true&ssl_cert_reqs=CERT_NONE" 
+CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/" 
 MONGO_DB_NAME = st.secrets["MONGO_DB_NAME"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
+@st.cache_resource
 def get_mongodb_connection():
     """
     Establishes connection to MongoDB.
@@ -17,16 +18,21 @@ def get_mongodb_connection():
         st.error("No MongoDB connection provided.")
         return None
     try:
-        from ssl import CERT_NONE
         import certifi
         client = MongoClient(
             st.session_state.mongodb_config["uri"],
-            ssl=True,
-            ssl_cert_reqs=CERT_NONE,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
             tlsCAFile=certifi.where(),
+            maxPoolSize=50,
+            minPoolSize=10,
+            maxIdleTimeMS=45000,
             connectTimeoutMS=30000,
             socketTimeoutMS=30000,
-            serverSelectionTimeoutMS=30000
+            serverSelectionTimeoutMS=30000,
+            appname=st.secrets['MONGO_APP_NAME'],
+            retryWrites=True,
+            w='majority'
         )
         client.admin.command('ping')
         return client
