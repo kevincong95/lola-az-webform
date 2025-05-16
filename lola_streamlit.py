@@ -1,31 +1,12 @@
-import hashlib, os
+import hashlib
 import streamlit as st
 import utils
 
 from datetime import datetime, timedelta
 from langchain_core.messages import AIMessage, HumanMessage
-from pymongo import MongoClient
 
+from landing_page import go_back_to_landing
 from lola_graph import primary_graph
-
-# ============================================
-# MongoDB Connection Setup
-# ============================================
-def get_mongodb_connection():
-    """
-    Establishes connection to MongoDB.
-    Update connection string with your MongoDB details.
-    """
-    if not st.session_state.mongodb_config["uri"]:
-        st.error("No MongoDB connection provided.")
-        return None
-    try:
-        client = MongoClient(st.session_state.mongodb_config["uri"])
-        client.admin.command('ping')
-        return client
-    except Exception as e:
-        st.error(f"Failed to connect to MongoDB: {e}")
-        return None
 
 # ============================================
 # Authentication Functions
@@ -49,13 +30,15 @@ def check_password():
     with st.container():
         if not st.session_state.authentication_status:
             st.header("Login")
+            if st.button("← Back to Landing Page"):
+                go_back_to_landing()
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
             
             #TODO: workflow to create new user, take placement test
             if st.button("Login"):
                 # Connect to MongoDB
-                client = get_mongodb_connection()
+                client = utils.get_mongodb_connection()
                 
                 if client is None:
                     st.error("Could not connect to database. Please try again later.")
@@ -329,7 +312,7 @@ if __name__ == "__main__":
 
     st.set_page_config(
         page_title="AI Tutoring System",
-        page_icon="🎓",
+        page_icon="🕸️",
         layout="centered",
         initial_sidebar_state="auto"
     )

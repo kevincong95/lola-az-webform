@@ -1,11 +1,28 @@
 import streamlit as st
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from pymongo import MongoClient
 
 # Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
 CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/?retryWrites=true&w=majority&appName={st.secrets['MONGO_APP_NAME']}" 
 MONGO_DB_NAME = st.secrets["MONGO_DB_NAME"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+
+def get_mongodb_connection():
+    """
+    Establishes connection to MongoDB.
+    Update connection string with your MongoDB details.
+    """
+    if not st.session_state.mongodb_config["uri"]:
+        st.error("No MongoDB connection provided.")
+        return None
+    try:
+        client = MongoClient(st.session_state.mongodb_config["uri"])
+        client.admin.command('ping')
+        return client
+    except Exception as e:
+        st.error(f"Failed to connect to MongoDB: {e}")
+        return None
 
 # Convert Streamlit chat format to Langgraph format
 def convert_to_langgraph_messages(streamlit_messages):
