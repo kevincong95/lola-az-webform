@@ -22,7 +22,6 @@ def get_mongodb_connection():
         client = MongoClient(
             st.session_state.mongodb_config["uri"],
             tls=True,
-            tlsAllowInvalidCertificates=True,
             tlsCAFile=certifi.where(),
             maxPoolSize=50,
             minPoolSize=10,
