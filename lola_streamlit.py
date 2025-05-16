@@ -34,8 +34,15 @@ def check_password():
                 go_back_to_landing()
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
+
+            # Store MongoDB connection details in session state if provided
+            if "mongodb_config" not in st.session_state:
+                st.session_state.mongodb_config = {
+                    "uri": utils.CONNECTION_STRING,
+                    "db_name": utils.MONGO_DB_NAME,
+                    "users_collection": "students"
+                }
             
-            #TODO: workflow to create new user, take placement test
             if st.button("Login"):
                 # Connect to MongoDB
                 client = utils.get_mongodb_connection()
@@ -46,9 +53,7 @@ def check_password():
                 
                 try:
                     # Access your database and collection
-                    db = utils.MONGO_DB_NAME
-                    users_collection = db['students']
-                    
+                    users_collection = client[utils.MONGO_DB_NAME]['students']
                     # Find the user
                     user = users_collection.find_one({"username": username})
                     
@@ -136,7 +141,7 @@ def start_new_session(current_topic, previous_topic, session_type):
         if new_state.get("message"):
             st.session_state.messages.append({"role": "assistant", "content": new_state["message"]})
 
-def main():
+def lola_main():
     st.title("🎓 AI-Powered Tutoring System")
     st.write(f"Welcome back, {st.session_state.username}! Lola hasn't seen you since {st.session_state.user_data['last_login']}. ")
     user_topic = st.session_state.user_data['current_topic']
@@ -297,27 +302,3 @@ def main():
                     break
         
         st.rerun()
-
-# ============================================
-# Main Execution
-# ============================================
-if __name__ == "__main__":
-    # Store MongoDB connection details in session state if provided
-    if "mongodb_config" not in st.session_state:
-        st.session_state.mongodb_config = {
-            "uri": utils.CONNECTION_STRING,
-            "db_name": utils.MONGO_DB_NAME,
-            "users_collection": "students"
-        }
-
-    st.set_page_config(
-        page_title="AI Tutoring System",
-        page_icon="🕸️",
-        layout="centered",
-        initial_sidebar_state="auto"
-    )
-
-    # Show the login page first
-    if check_password():
-        # If authentication is successful, show the main application
-        main()

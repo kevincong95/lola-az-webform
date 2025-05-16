@@ -326,7 +326,7 @@ def main():
         run_customer_service_agent()
     elif st.session_state.current_page == "main":
         # Import the main function from the original file
-        from lola_streamlit import main as lola_main
+        from lola_streamlit import lola_main
         lola_main()
 
 if __name__ == "__main__":
