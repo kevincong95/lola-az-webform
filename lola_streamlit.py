@@ -34,14 +34,6 @@ def check_password():
                 go_back_to_landing()
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
-
-            # Store MongoDB connection details in session state if provided
-            if "mongodb_config" not in st.session_state:
-                st.session_state.mongodb_config = {
-                    "uri": utils.CONNECTION_STRING,
-                    "db_name": utils.MONGO_DB_NAME,
-                    "users_collection": "students"
-                }
             
             if st.button("Login"):
                 # Connect to MongoDB
