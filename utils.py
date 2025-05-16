@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pymongo import MongoClient
 
 # Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/?retryWrites=true&w=majority&appName={st.secrets['MONGO_APP_NAME']}" 
+CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/?retryWrites=true&w=majority&appName={st.secrets['MONGO_APP_NAME']}&ssl=true&ssl_cert_reqs=CERT_NONE" 
 MONGO_DB_NAME = st.secrets["MONGO_DB_NAME"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
@@ -17,7 +17,17 @@ def get_mongodb_connection():
         st.error("No MongoDB connection provided.")
         return None
     try:
-        client = MongoClient(st.session_state.mongodb_config["uri"])
+        from ssl import CERT_NONE
+        import certifi
+        client = MongoClient(
+            st.session_state.mongodb_config["uri"],
+            ssl=True,
+            ssl_cert_reqs=CERT_NONE,
+            tlsCAFile=certifi.where(),
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+            serverSelectionTimeoutMS=30000
+        )
         client.admin.command('ping')
         return client
     except Exception as e:
