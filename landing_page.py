@@ -305,20 +305,12 @@ def main():
             "users_collection": "students"
         }
     
-    # Setup page config
-    st.set_page_config(
-        page_title="AI Tutoring System",
-        page_icon="🎓",
-        layout="centered",
-        initial_sidebar_state="auto"
-    )
-    
     # Handle page navigation
     if st.session_state.current_page == "landing":
         display_landing_page()
     elif st.session_state.current_page == "login":
         # Import the login function from the original file
-        from lola_streamlit import check_password, main as lola_main
+        from lola_streamlit import check_password, lola_main
         
         if check_password():
             lola_main()
@@ -330,4 +322,12 @@ def main():
         lola_main()
 
 if __name__ == "__main__":
+    # Setup page config
+    st.set_page_config(
+        page_title="AI Tutoring System",
+        page_icon="🕸️",
+        layout="centered",
+        initial_sidebar_state="auto"
+    )
+
     main()
