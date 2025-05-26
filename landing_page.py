@@ -1,8 +1,9 @@
 import hashlib
 import streamlit as st
+import utils
 
 from datetime import datetime
-import utils
+from lola_streamlit import lola_main
 
 def create_new_user(username, password, user_data):
     """Create a new user in the database with provided information."""
@@ -65,6 +66,8 @@ def display_landing_page():
         if st.button("Log In", key="login_button", use_container_width=True):
             st.session_state.current_page = "login"
             st.rerun()
+        if st.button("Log in with Google", icon=":material/login:"):
+            st.login()
     
     with col2:
         st.success("### New to Our Platform?")
@@ -91,6 +94,94 @@ def display_landing_page():
         st.markdown("#### 📊 Track Your Progress")
         st.write("See your improvement over time with detailed analytics.")
 
+# Authentication Functions
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    
+    # Initialize session state for authentication
+    if "authentication_status" not in st.session_state:
+        st.session_state.authentication_status = False
+    if "username" not in st.session_state:
+        st.session_state.username = ""
+    if "user_data" not in st.session_state:
+        st.session_state.user_data = {}
+    
+    if st.session_state.authentication_status:
+        return True
+    
+    # If not authenticated, show login form in a container
+    # This container will be emptied/replaced after successful login
+    with st.container():
+        if not st.session_state.authentication_status:
+            st.header("Login")
+            if st.button("← Back to Landing Page"):
+                go_back_to_landing()
+            
+            username = st.text_input("Username or Email", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
+            
+            if st.button("Log in with username and password"):
+                # Connect to MongoDB
+                client = utils.get_mongodb_connection()
+                
+                if client is None:
+                    st.error("Could not connect to database. Please try again later.")
+                    return False
+                
+                try:
+                    # Access your database and collection
+                    users_collection = client[utils.MONGO_DB_NAME]['students']
+                    # Find the user
+                    user = users_collection.find_one({
+                        "$or": [
+                            {"username": username},
+                            {"email": username}
+                        ]
+                    })
+                    
+                    if user:
+                        # Hash the input password with the same method as stored in your DB
+                        # This example assumes passwords are stored with SHA-256
+                        # Adjust according to your actual password storage method
+                        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                        
+                        # For hashed passwords (better security)
+                        stored_password = user['password_hash']
+                        is_password_correct = (hashed_password == stored_password)
+                        
+                        if is_password_correct:
+                            st.session_state.authentication_status = True
+                            st.session_state.username = username
+                            st.session_state.login_time = datetime.now()
+                            
+                            # Store user data in session state for later use
+                            st.session_state.user_data = {
+                                "username": user.get('username', username),
+                                "last_login": user.get('last_login', st.session_state.login_time),
+                                "current_topic": user.get('current_topic', 'What is a computer?'),
+                                "previous_topic": user.get('previous_topic', '')
+                            }
+                            
+                            # Use success message temporarily before rerun
+                            st.success(f"Welcome, {st.session_state.username}!")
+                            # Rerun to clear the login form and show main app
+                            st.rerun()
+                        else:
+                            st.error("Password is incorrect")
+                            return False
+                    else:
+                        st.error("Username not found")
+                        return False
+                        
+                except Exception as e:
+                    st.error(f"Authentication error: {e}")
+                    return False
+                finally:
+                    # Close MongoDB connection
+                    client.close()
+    
+    return st.session_state.authentication_status
+
 def run_customer_service_agent():
     """Handle the customer service agent conversation for onboarding new users."""
     if "cs_state" not in st.session_state:
@@ -105,23 +196,33 @@ def run_customer_service_agent():
     # Add back button with confirmation dialog
     if "show_exit_confirmation" not in st.session_state:
         st.session_state.show_exit_confirmation = False
-        
-    if st.button("← Back to Landing Page"):
-        st.session_state.show_exit_confirmation = True
     
-    # Show confirmation dialog when back button is clicked
-    if st.session_state.show_exit_confirmation:
-        st.warning("Are you sure you want to cancel sign up? All your information will not be saved.")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Yes, go back"):
-                del st.session_state.cs_state
-                st.session_state.show_exit_confirmation = False
-                go_back_to_landing()
-        with col2:
-            if st.button("No, continue sign up"):
-                st.session_state.show_exit_confirmation = False
-                st.rerun()
+    user = getattr(st, "user", None)
+    logged_in = user and user.get("is_logged_in", False)
+    if logged_in:
+        if st.button("Logout"):
+            st.logout()
+            st.session_state.username = ""
+            st.session_state.user_data = {}
+            st.session_state.messages = []
+            st.session_state.current_page = "landing"
+            st.rerun()
+    else:
+        if st.button("← Back to Landing Page"):
+            st.session_state.show_exit_confirmation = True    
+        # Show confirmation dialog when back button is clicked
+        if st.session_state.show_exit_confirmation:
+            st.warning("Are you sure you want to cancel sign up? All your information will not be saved.")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Yes, go back"):
+                    del st.session_state.cs_state
+                    st.session_state.show_exit_confirmation = False
+                    go_back_to_landing()
+            with col2:
+                if st.button("No, continue sign up"):
+                    st.session_state.show_exit_confirmation = False
+                    st.rerun()
     
     # Display conversation history
     for message in st.session_state.cs_state["conversation"]:
@@ -136,8 +237,12 @@ def run_customer_service_agent():
         greeting = """
         Are you taking AP CSA at school, or are you wondering if it is the right course for you? Why not join us for free to give it a try? \n
         Or are you are a parent and have questions about the AP CSA course? Just let me know! \n
-        Welcome again and it’s a pleasure to meet you, may I know who you are?
+        Welcome again and it’s a pleasure to meet you,
         """
+        if logged_in:
+            greeting += f"{user['name']}!"
+        else:
+            greeting += " may I know who you are?"
         st.session_state.cs_state["conversation"].append({"role": "assistant", "content": greeting})
         st.session_state.cs_state["step"] = 1
         st.rerun()
@@ -305,20 +410,34 @@ def main():
             "users_collection": "students"
         }
     
+    # Check Streamlit built-in login
+    user = getattr(st, "user", None)
+
+    is_logged_in = user and user.get("is_logged_in", False)
+
+    if is_logged_in:
+        st.session_state.username = user["name"]
+
+        # User is logged in; check MongoDB for this user
+        client = utils.get_mongodb_connection()
+        db = client[utils.MONGO_DB_NAME]
+        
+        existing_user = db["students"].find_one({"email": user["email"]})
+        if existing_user:
+            st.session_state.user_profile = existing_user
+            st.session_state.current_page = "main"
+        else:
+            st.session_state.current_page = "customer_service"
+    
     # Handle page navigation
     if st.session_state.current_page == "landing":
         display_landing_page()
-    elif st.session_state.current_page == "login":
-        # Import the login function from the original file
-        from lola_streamlit import check_password, lola_main
-        
+    elif st.session_state.current_page == "login":        
         if check_password():
             lola_main()
     elif st.session_state.current_page == "customer_service":
         run_customer_service_agent()
     elif st.session_state.current_page == "main":
-        # Import the main function from the original file
-        from lola_streamlit import lola_main
         lola_main()
 
 if __name__ == "__main__":

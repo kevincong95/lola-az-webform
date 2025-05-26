@@ -1,96 +1,10 @@
-import hashlib
 import streamlit as st
 import utils
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from langchain_core.messages import AIMessage, HumanMessage
 
-from landing_page import go_back_to_landing
 from lola_graph import primary_graph
-
-# ============================================
-# Authentication Functions
-# ============================================
-def check_password():
-    """Returns `True` if the user had the correct password."""
-    
-    # Initialize session state for authentication
-    if "authentication_status" not in st.session_state:
-        st.session_state.authentication_status = False
-    if "username" not in st.session_state:
-        st.session_state.username = ""
-    if "user_data" not in st.session_state:
-        st.session_state.user_data = {}
-    
-    if st.session_state.authentication_status:
-        return True
-    
-    # If not authenticated, show login form in a container
-    # This container will be emptied/replaced after successful login
-    with st.container():
-        if not st.session_state.authentication_status:
-            st.header("Login")
-            if st.button("← Back to Landing Page"):
-                go_back_to_landing()
-            username = st.text_input("Username", key="login_username")
-            password = st.text_input("Password", type="password", key="login_password")
-            
-            if st.button("Login"):
-                # Connect to MongoDB
-                client = utils.get_mongodb_connection()
-                
-                if client is None:
-                    st.error("Could not connect to database. Please try again later.")
-                    return False
-                
-                try:
-                    # Access your database and collection
-                    users_collection = client[utils.MONGO_DB_NAME]['students']
-                    # Find the user
-                    user = users_collection.find_one({"username": username})
-                    
-                    if user:
-                        # Hash the input password with the same method as stored in your DB
-                        # This example assumes passwords are stored with SHA-256
-                        # Adjust according to your actual password storage method
-                        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                        
-                        # For hashed passwords (better security)
-                        stored_password = user['password_hash']
-                        is_password_correct = (hashed_password == stored_password)
-                        
-                        if is_password_correct:
-                            st.session_state.authentication_status = True
-                            st.session_state.username = username
-                            st.session_state.login_time = datetime.now()
-                            
-                            # Store user data in session state for later use
-                            st.session_state.user_data = {
-                                "username": user.get('username', username),
-                                "last_login": user.get('last_login', st.session_state.login_time),
-                                "current_topic": user.get('current_topic', 'What is a computer?'),
-                                "previous_topic": user.get('previous_topic', '')
-                            }
-                            
-                            # Use success message temporarily before rerun
-                            st.success(f"Welcome, {st.session_state.username}!")
-                            # Rerun to clear the login form and show main app
-                            st.rerun()
-                        else:
-                            st.error("Password is incorrect")
-                            return False
-                    else:
-                        st.error("Username not found")
-                        return False
-                        
-                except Exception as e:
-                    st.error(f"Authentication error: {e}")
-                    return False
-                finally:
-                    # Close MongoDB connection
-                    client.close()
-    
-    return st.session_state.authentication_status
 
 # Function to start a new session
 def start_new_session(current_topic, previous_topic, session_type):
@@ -146,13 +60,20 @@ def lola_main():
         
         # Add logout button at the top of sidebar
         if st.button("Logout"):
-            # Clear authentication status and user data
-            st.session_state.authentication_status = False
-            st.session_state.username = ""
-            st.session_state.user_data = {}
-            st.session_state.messages = []
-            # Rerun to show login page
-            st.rerun()
+            st.warning("Hey, if you're busy and need a break, I get it. Don't worry, all your progress will be saved!")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Yes, log out"):
+                    # Clear authentication status and user data
+                    st.session_state.username = ""
+                    st.session_state.user_data = {}
+                    st.session_state.messages = []
+                    st.logout()
+                    st.session_state.current_page = "landing"
+                    st.rerun()
+            with col2:
+                if st.button("No, return to session"):
+                    st.rerun()
 
     # Initialize session state
     if "messages" not in st.session_state:
@@ -227,10 +148,10 @@ def lola_main():
             elif "exit" in user_choice:
                 # User wants to exit; clear authentication status and user data
                 # TODO: write message history to long term memory
-                st.session_state.authentication_status = False
                 st.session_state.username = ""
                 st.session_state.user_data = {}
                 st.session_state.messages = []
+                st.logout()
                 # Rerun to show login page
                 st.rerun()
             else:
