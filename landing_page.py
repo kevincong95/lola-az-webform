@@ -55,24 +55,23 @@ def go_back_to_landing():
 
 def display_landing_page():
     """Display the landing page with options for new and returning users."""
-    st.title("🕸️ Welcome to the AP CSA classroom at fastlearn.ai, the AI powered spider web school!")
-    st.write("Hello, I am Lola, would you like to join me and Cassie, Dud, Prevo to study AP CSA?")
+    st.write("### 🕸️ Welcome to Fastlearn.ai! 🕸️")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.info("### Returning Student")
-        st.write("Already have an account? Log in to continue your learning journey.")
-        if st.button("Log In", key="login_button", use_container_width=True):
+        st.write("### Returning FastLearner?")
+        st.write("Please log in to continue your learning journey!")
+        if st.button("Log in with username", key="login_button", icon=":material/login:"):
             st.session_state.current_page = "login"
             st.rerun()
         if st.button("Log in with Google", icon=":material/login:"):
             st.login()
     
     with col2:
-        st.success("### New to Our Platform?")
-        st.write("Create an account and start your learning adventure today!")
-        if st.button("Sign Up", key="signup_button", use_container_width=True):
+        st.write("### New to FastLearn?")
+        st.write("Welcome! Currently I can tutor AP Comp Sci A, are you interested in more details?")
+        if st.button("Chat with Lola", key="signup_button"):
             st.session_state.current_page = "customer_service"
             st.rerun()
     
