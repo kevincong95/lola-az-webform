@@ -74,24 +74,6 @@ def display_landing_page():
         if st.button("Chat with Lola", key="signup_button"):
             st.session_state.current_page = "customer_service"
             st.rerun()
-    
-    # Add some testimonials or features below
-    st.divider()
-    st.subheader("Why Choose Our Tutoring System?")
-    
-    feature_col1, feature_col2, feature_col3 = st.columns(3)
-    
-    with feature_col1:
-        st.markdown("#### 🧠 Personalized Learning")
-        st.write("Tell me more about yourself, and we can start a personalized learning experience designed just for you, right away!")
-    
-    with feature_col2:
-        st.markdown("#### 🤖 AI-Powered Assistance")
-        st.write("Just need a hint on a homework problem? I can help with that too! \n")
-    
-    with feature_col3:
-        st.markdown("#### 📊 Track Your Progress")
-        st.write("See your improvement over time with detailed analytics.")
 
 # Authentication Functions
 def check_password():
