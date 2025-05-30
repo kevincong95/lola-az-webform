@@ -1,8 +1,11 @@
 import os
 import streamlit as st
 
+from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pymongo import MongoClient
+
+load_dotenv()
 
 def get_secret(key):
     value = os.getenv(key)
