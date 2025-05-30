@@ -1,12 +1,23 @@
+import os
 import streamlit as st
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pymongo import MongoClient
 
+def get_secret(key):
+    value = os.getenv(key)
+    if value:
+        return value
+    try:
+        return st.secrets[key]
+    except Exception as e:
+        st.error(f"Failed to load secrets: {e}")
+        return None
+
 # Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-CONNECTION_STRING = f"mongodb+srv://{st.secrets['MONGO_USERNAME']}:{st.secrets['MONGO_PASSWORD']}@{st.secrets['MONGO_CLUSTER']}/" 
-MONGO_DB_NAME = st.secrets["MONGO_DB_NAME"]
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+CONNECTION_STRING = f"mongodb+srv://{get_secret('MONGO_USERNAME')}:{get_secret('MONGO_PASSWORD')}/{get_secret('MONGO_CLUSTER')}/" 
+MONGO_DB_NAME = get_secret("MONGO_DB_NAME")
+OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
 @st.cache_resource
 def get_mongodb_connection():
@@ -29,7 +40,7 @@ def get_mongodb_connection():
             connectTimeoutMS=30000,
             socketTimeoutMS=30000,
             serverSelectionTimeoutMS=30000,
-            appname=st.secrets['MONGO_APP_NAME'],
+            appname=get_secret('MONGO_APP_NAME'),
             retryWrites=True,
             w='majority'
         )
