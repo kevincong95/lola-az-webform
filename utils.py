@@ -4,6 +4,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pymongo import MongoClient
+from urllib.parse import quote_plus
 
 load_dotenv()
 
@@ -17,9 +18,15 @@ def get_secret(key):
         st.error(f"Failed to load secrets: {e}")
         return None
 
-# Format: mongodb+srv://<username>:<password>@<cluster>.<id>.mongodb.net/
-CONNECTION_STRING = f"mongodb+srv://{get_secret('MONGO_USERNAME')}:{get_secret('MONGO_PASSWORD')}/{get_secret('MONGO_CLUSTER')}/" 
-MONGO_DB_NAME = get_secret("MONGO_DB_NAME")
+USERNAME = quote_plus(get_secret('MONGO_USERNAME'))
+PASSWORD = quote_plus(get_secret('MONGO_PASSWORD'))
+CLUSTER = get_secret('MONGO_CLUSTER')
+MONGO_DB_NAME = get_secret('MONGO_DB_NAME')
+
+CONNECTION_STRING = (
+    f"mongodb+srv://{USERNAME}:{PASSWORD}@{CLUSTER}/{MONGO_DB_NAME}"
+    "?retryWrites=true&w=majority"
+)
 OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
 @st.cache_resource

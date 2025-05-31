@@ -390,7 +390,6 @@ def main():
             "db_name": utils.MONGO_DB_NAME,
             "users_collection": "students"
         }
-        print("MongoDB URI:", repr(st.session_state.mongodb_config["uri"]))
     
     # Check Streamlit built-in login
     user = getattr(st, "user", None)
