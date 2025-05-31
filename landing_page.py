@@ -423,6 +423,9 @@ def main():
 
 if __name__ == "__main__":
     # Setup page config
+    import os
+    print("✅ Streamlit app started")
+    print("📦 ENV PORT =", os.getenv("PORT"))
     st.set_page_config(
         page_title="AI Tutoring System",
         page_icon="🕸️",

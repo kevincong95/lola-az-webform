@@ -20,4 +20,4 @@ env/
 ENV/
 
 # Streamlit
-.streamlit/*.toml
+.streamlit/secrets.toml
