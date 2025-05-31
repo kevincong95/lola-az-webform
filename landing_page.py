@@ -390,6 +390,7 @@ def main():
             "db_name": utils.MONGO_DB_NAME,
             "users_collection": "students"
         }
+        print(st.session_state.mongodb_config)
     
     # Check Streamlit built-in login
     user = getattr(st, "user", None)
@@ -423,9 +424,6 @@ def main():
 
 if __name__ == "__main__":
     # Setup page config
-    import os
-    print("✅ Streamlit app started")
-    print("📦 ENV PORT =", os.getenv("PORT"))
     st.set_page_config(
         page_title="AI Tutoring System",
         page_icon="🕸️",
