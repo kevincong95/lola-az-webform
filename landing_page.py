@@ -55,22 +55,19 @@ def go_back_to_landing():
 
 def display_landing_page():
     """Display the landing page with options for new and returning users."""
-    st.write("### 🕸️ Welcome to Fastlearn.ai! 🕸️")
+    st.markdown("<div style='text-align: center;'><h3>🕸️ Welcome to Fastlearn.ai! 🕸️</h3></div>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.write("### Returning FastLearner?")
         st.write("Please log in to continue your learning journey!")
-        if st.button("Log in with username", key="login_button", icon=":material/login:"):
-            st.session_state.current_page = "login"
-            st.rerun()
         if st.button("Log in with Google", icon=":material/login:"):
             st.login()
     
     with col2:
         st.write("### New to FastLearn?")
-        st.write("Welcome! Currently I can tutor AP Comp Sci A, are you interested in more details?")
+        st.write("Welcome! Please chat with Lola to create an account or for more details.")
         if st.button("Chat with Lola", key="signup_button"):
             st.session_state.current_page = "customer_service"
             st.rerun()
@@ -172,7 +169,7 @@ def run_customer_service_agent():
             "conversation": []
         }
     
-    st.title("🤝 Let's Get You Started!")
+    st.title("🤝 Hi, I'm Lola! Let's Get You Started! 🕷️")
     
     # Add back button with confirmation dialog
     if "show_exit_confirmation" not in st.session_state:
