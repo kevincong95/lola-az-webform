@@ -28,7 +28,7 @@ class PrimaryState(MessagesState):
 
 llm = ChatOpenAI(
     temperature=0.7, 
-    model_name="gpt-4", 
+    model_name="gpt-4.1-mini", 
     api_key=OPENAI_API_KEY
 )
 

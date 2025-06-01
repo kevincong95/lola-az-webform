@@ -10,7 +10,7 @@ from utils import OPENAI_API_KEY
 # Initialize the language model
 cassie_tools = [tools.fetch_lesson_plan, tools.generate_summary]
 llm = ChatOpenAI(
-    model_name="gpt-4",
+    model_name="gpt-4.1-mini",
     temperature=0.7,
     api_key=OPENAI_API_KEY
 ).bind_tools(cassie_tools)
