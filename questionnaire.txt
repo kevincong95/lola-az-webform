@@ -1,0 +1,26 @@
+<motivation questions>
+1. Have you ever written any code before? a) Yes, in Java b) Yes, in another language (like Python, Scratch, JavaScript, etc.) c) A little bit, just basic stuff or tutorials d) No, this will be my first time coding
+2. Are you taking AP Com Sci A at school? a) Yes, right now. I need additional practice. b) Yes, right now. I need help. c) No, but I plan to take it the upcoming school year. I’d like to start earlier. d) No, I plan to self-study and take the AP test outside school e) I’m not sure yet, just exploring
+3. Why are you interested in taking AP Computer Science A? a) Yes, this allows me to focus on what I want to do b) I’m curious about how computers work c) I’m thinking about a future in tech, gaming, or engineering d) I'm taking it because it looks good for college or GPA e) I’m not sure yet, just exploring
+4. How important is getting a 5 on the college board AP CSA test to you? Not important / A little important / Very important / It’s my main reason for taking it
+5. Do you see AP CSA connecting to anything you want to do after high school? Yes / Maybe / No / Not sure yet
+6. If no one made you take this class, would you still want to learn how to code—and why?
+7. How do you feel when starting something totally new and unfamiliar? a) Excited and ready to explore! b) Curious but a little cautious c) Nervous—I like knowing what to expect d) I usually wait to see if I’ll like it first
+</motivation questions>
+
+<readiness questions>
+1. When something gets really hard in school, how do you usually respond? a) I keep trying different ways to understand it
+2. What do you usually do when you don’t understand something in class? a) I try to figure it out on my own first   b) I talk to the teacher or a classmate c) I search online or watch videos d) I wait and hope it makes sense later
+3. How do you feel about making mistakes in class? a) I learn a lot from them—mistakes are normal b) I try to avoid them, but I don’t mind c) I get embarrassed or stressed d) I usually just stay quiet to avoid messing up
+4. What do you expect from a course like AP Computer Science A? Select all that apply: a) Learning how to code b) Solving logical problems c) Creating cool projects or apps d) Getting ready for a tech career and major in CS at college e) Have a taste at what it looks like to be a coder f) I'm not sure what to expect
+5. Which best describes your approach to schoolwork in general? a) I plan ahead and stay on top of things b) I sometimes wait until the last minute c) I do just enough to get by d) It depends on the class and how interested I am
+6. Which math course are you currently taking at school? a) Pre-algebra or below b) Algebra 1 c) Geometry d) Algebra 2 e) Precalculus or above
+</readiness questions>
+
+<learning style questions>
+1. When you're trying to learn something new, what helps you the most? a) Watching videos or animations b) Reading step-by-step instructions or textbooks c) Doing hands-on practice or coding projects d) Talking about it with others or asking questions e) Seeing how it works in real life (real-world examples)
+2. If you get stuck on a tough homework problem or other tasks, what do you usually do first? a) Try random things until something works b) Look up hints or watch a tutorial c) Ask someone for help d) Take a break and come back to it e) Read the instructions or rewatch a lesson carefully
+3. What types of questions do you prefer? a) Multiple Choice Questions b) Open-end free response questions c) Puzzles such as filling the missing components, for example  10 + x = 20 - x d) Word problems with plenty of context information e) All of them 
+4. How do you feel about learning by trial and error (experimenting, even if you mess up at first)? a) Love it b) It’s okay c) Makes me nervous d) Failing frustrates me so I try to avoid it
+5. Which of these sounds most fun to you in a class project? a) Designing a custom game or animation b) Solving a mystery or puzzle with code c) Making an app or website that others can use d) Analyzing data or working with simulations e) Competing in a coding challenge or hackathon
+</learning style questions>
