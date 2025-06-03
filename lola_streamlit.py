@@ -1,7 +1,7 @@
 import streamlit as st
 import utils
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from langchain_core.messages import AIMessage, HumanMessage
 
 from lola_graph import primary_graph
@@ -48,37 +48,35 @@ def start_new_session(current_topic, previous_topic, session_type):
             st.session_state.messages.append({"role": "assistant", "content": new_state["message"]})
 
 def lola_main():
+    if not hasattr(st.session_state, "login_time"):
+        st.session_state.login_time = datetime.now()
     st.title("🎓 AI-Powered Tutoring System")
-    st.write(f"Welcome back, {st.session_state.username}! Lola hasn't seen you since {st.session_state.user_data['last_login']}. ")
-    user_topic = st.session_state.user_data['current_topic']
-    previous_topic = st.session_state.user_data['previous_topic']
-    st.write(f"Press 'Start Session' to begin your session on either {user_topic} or {previous_topic}.")
+    st.write(f"Welcome back, {st.session_state.user_data['username']}! Lola hasn't seen you since {st.session_state.user_data.get('last_login', st.session_state.login_time)}. ")
+    user_topic = st.session_state.user_data.get('current_topic', "What is a computer?")
+    previous_topic = st.session_state.user_data.get('previous_topic', "")
+    st.write(f"Are you ready to begin your session on '{user_topic}'? Just hit 'Start Session'!")
 
     # Add a small user info section at the top right
     with st.sidebar:
-        st.info(f"Logged in as: {st.session_state.username}")
-        
-        # Add logout button at the top of sidebar
+        st.info(f"Logged in as: {st.session_state.user_data['username']}")
         if st.button("Logout"):
             st.warning("Hey, if you're busy and need a break, I get it. Don't worry, all your progress will be saved!")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Yes, log out"):
                     # Clear authentication status and user data
-                    st.session_state.username = ""
+                    # TODO: Update MongoDB
                     st.session_state.user_data = {}
                     st.session_state.messages = []
-                    st.logout()
                     st.session_state.current_page = "landing"
+                    st.logout()
                     st.rerun()
             with col2:
                 if st.button("No, return to session"):
                     st.rerun()
 
-    # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
-
     if "state" not in st.session_state:
         st.session_state.state = {
             "user_topic": user_topic,
@@ -90,30 +88,22 @@ def lola_main():
             "next_step": None
         }
 
-    # ------------------ Start Session ------------------
     with st.sidebar:
         st.header("Session Setup")
-        # user_topic = st.text_input("Enter the topic you want to learn:", key="topic_input")
-        
         session_type = st.selectbox(
             "Session Type",
             ["lesson", "quiz"],
             index=0,
             key="session_type"
         )
-        
-        
         if st.button("Start Session") and user_topic:
             start_new_session(user_topic, previous_topic, session_type)
             st.rerun()
 
-    # ------------------ Display Chat Messages ------------------
     for message in st.session_state.messages:
         if message["role"] != "system":  # Don't show system messages
             with st.chat_message(message["role"]):
                 st.write(message["content"])
-
-    # ------------------ Handle User Input ------------------
     user_input = st.chat_input("Type your message here...")
 
     if user_input:
@@ -148,11 +138,10 @@ def lola_main():
             elif "exit" in user_choice:
                 # User wants to exit; clear authentication status and user data
                 # TODO: write message history to long term memory
-                st.session_state.username = ""
                 st.session_state.user_data = {}
                 st.session_state.messages = []
+                st.session_state.current_page = "landing"
                 st.logout()
-                # Rerun to show login page
                 st.rerun()
             else:
                 # User provided something else
@@ -205,7 +194,6 @@ def lola_main():
         
         # 2. Check for messages in subgraph state
         elif new_state.get("subgraph_state") and new_state["subgraph_state"].get("messages"):
-            # Convert subgraph messages to Streamlit format
             latest_messages = new_state["subgraph_state"]["messages"]
             for msg in reversed(latest_messages):
                 if isinstance(msg, AIMessage) and msg.content not in [m["content"] for m in st.session_state.messages if m["role"] == "assistant"]:

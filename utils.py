@@ -23,10 +23,7 @@ PASSWORD = quote_plus(get_secret('MONGO_PASSWORD'))
 CLUSTER = get_secret('MONGO_CLUSTER')
 MONGO_DB_NAME = get_secret('MONGO_DB_NAME')
 
-CONNECTION_STRING = (
-    f"mongodb+srv://{USERNAME}:{PASSWORD}@{CLUSTER}/{MONGO_DB_NAME}"
-    "?retryWrites=true&w=majority"
-)
+CONNECTION_STRING = f"mongodb+srv://{USERNAME}:{PASSWORD}@{CLUSTER}/{MONGO_DB_NAME}?retryWrites=true&w=majority"
 OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
 @st.cache_resource
@@ -35,13 +32,10 @@ def get_mongodb_connection():
     Establishes connection to MongoDB.
     Update connection string with your MongoDB details.
     """
-    if not st.session_state.mongodb_config["uri"]:
-        st.error("No MongoDB connection provided.")
-        return None
     try:
         import certifi
         client = MongoClient(
-            st.session_state.mongodb_config["uri"],
+            CONNECTION_STRING,
             tls=True,
             tlsCAFile=certifi.where(),
             maxPoolSize=50,

@@ -1,5 +1,4 @@
-import json
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph, START
 from typing import Optional
@@ -33,7 +32,7 @@ def chat_node(state: OnboardState):
 
         {questionnaire}
 
-        Once you have all the answers, Once you've gathered all the necessary information, call the `summarize_to_profile` tool. 
+        Once you have all the answers, call the `summarize_to_profile` tool. 
         Pass in a list of all conversation messages (excluding the system prompt). 
         Do not restate or reformat the summary. Simply call the tool and stop speaking.
         """
@@ -83,8 +82,6 @@ def tool_executor(state: OnboardState) -> OnboardState:
                     tool_call_id=tool_id
                 )
                 state["messages"].append(tool_message)
-                
-                # Store lesson plan or summary in state
                 if tool_name == "summarize_to_profile":
                     state["student_profile"] = result
             else:

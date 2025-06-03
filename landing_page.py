@@ -8,7 +8,7 @@ from onboard_agent import sally_graph
 
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
-    client = utils.get_mongodb_connection()
+    client = st.session_state.mongo_client
     if client is None:
         return False, "Could not connect to database."
     
@@ -62,12 +62,9 @@ def check_password():
     # Initialize session state for authentication
     if "authentication_status" not in st.session_state:
         st.session_state.authentication_status = False
-    if "username" not in st.session_state:
-        st.session_state.username = ""
     if "user_data" not in st.session_state:
         st.session_state.user_data = {}
-    
-    if st.session_state.authentication_status:
+    if st.session_state.authentication_status or (getattr(st, "user", None) and st.user.get("is_logged_in", False)):
         return True
     
     # If not authenticated, show login form in a container
@@ -82,10 +79,8 @@ def check_password():
             password = st.text_input("Password", type="password", key="login_password")
             
             if st.button("Log in with username and password"):
-                # Connect to MongoDB
-                client = utils.get_mongodb_connection()
-                
-                if client is None:
+                client = st.session_state.mongo_client
+                if not client:
                     st.error("Could not connect to database. Please try again later.")
                     return False
                 
@@ -101,37 +96,24 @@ def check_password():
                     })
                     
                     if user:
-                        # Hash the input password with the same method as stored in your DB
-                        # This example assumes passwords are stored with SHA-256
-                        # Adjust according to your actual password storage method
+                        # Hash the input password with the same method as stored in your DB, such as SHA-256
                         hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                        
-                        # For hashed passwords (better security)
                         stored_password = user['password_hash']
                         is_password_correct = (hashed_password == stored_password)
                         
                         if is_password_correct:
                             st.session_state.authentication_status = True
-                            st.session_state.username = username
                             st.session_state.login_time = datetime.now()
-                            
-                            # Store user data in session state for later use
-                            st.session_state.user_data = {
-                                "username": user.get('username', username),
-                                "last_login": user.get('last_login', st.session_state.login_time),
-                                "current_topic": user.get('current_topic', 'What is a computer?'),
-                                "previous_topic": user.get('previous_topic', '')
-                            }
+                            st.session_state.user_data = user
                             
                             # Use success message temporarily before rerun
                             st.success(f"Welcome, {st.session_state.username}!")
-                            # Rerun to clear the login form and show main app
                             st.rerun()
                         else:
                             st.error("Password is incorrect")
                             return False
                     else:
-                        st.error("Username not found")
+                        st.error("Username/email not found")
                         return False
                         
                 except Exception as e:
@@ -161,7 +143,6 @@ def run_customer_service_agent():
             st.logout()
             st.session_state.username = ""
             st.session_state.user_data = {}
-            st.session_state.messages = []
             st.session_state.current_page = "landing"
             st.rerun()
     else:
@@ -202,17 +183,14 @@ def run_customer_service_agent():
         st.rerun()
     student_profile = st.session_state.onboard_state.get("student_profile")
     if student_profile:
-        if not hasattr(st.session_state, "user_profile"):
-            st.session_state.user_profile = student_profile
         st.success("✅ You're all set! Here's what I learned about you:")
-
         st.json(student_profile)
 
         # Try to get user info
         if not logged_in:
             st.info("Before we create your account, please sign in with Google.")
             if st.button("Sign in with Google"):
-                st.login()  # This triggers the Streamlit login flow
+                st.login()
             return  # Wait until user logs in
 
         # If user is logged in, ask for confirmation to create account
@@ -225,10 +203,17 @@ def run_customer_service_agent():
         col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Yes, create my account"):
-                # Save to MongoDB
-                st.session_state.user_profile["username"] = user_name
-                st.session_state.user_profile["email"] = user_email
-                if create_new_user(st.session_state.user_profile):
+                # Save to MongoDB and session_state
+                if not hasattr(st.session_state, "user_data"):
+                    st.session_state.user_data = student_profile
+                st.session_state.user_data["username"] = user_name
+                st.session_state.user_data["email"] = user_email
+                creation_time = datetime.now()
+                st.session_state.user_data["created_at"] = creation_time
+                st.session_state.user_data["last_login"] = creation_time
+                st.session_state.user_data["current_topic"] = "What is a computer?"
+                st.session_state.user_data["previous_topic"] = ""
+                if create_new_user(st.session_state.user_data):
                     st.success("🎉 Your account has been created successfully!")
                     st.session_state.onboard_state = None
                     st.session_state.current_page = "main"
@@ -246,27 +231,19 @@ def main():
     
     # Store MongoDB connection details in session state if provided
     if "mongodb_config" not in st.session_state:
-        st.session_state.mongodb_config = {
-            "uri": utils.CONNECTION_STRING,
-            "db_name": utils.MONGO_DB_NAME,
-            "users_collection": "students"
-        }
+        st.session_state.mongo_client = utils.get_mongodb_connection()
     
     # Check Streamlit built-in login
     user = getattr(st, "user", None)
-
     is_logged_in = user and user.get("is_logged_in", False)
-
     if is_logged_in:
         st.session_state.username = user["name"]
 
         # User is logged in; check MongoDB for this user
-        client = utils.get_mongodb_connection()
-        db = client[utils.MONGO_DB_NAME]
-        
+        db = st.session_state.mongo_client[utils.MONGO_DB_NAME]
         existing_user = db["students"].find_one({"email": user["email"]})
         if existing_user:
-            st.session_state.user_profile = existing_user
+            st.session_state.user_data = existing_user
             st.session_state.current_page = "main"
         else:
             st.session_state.current_page = "customer_service"
