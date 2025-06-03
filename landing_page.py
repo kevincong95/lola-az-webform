@@ -124,105 +124,88 @@ def check_password():
 
 def run_customer_service_agent():
     """Handle the customer service agent conversation for onboarding new users."""
-    if "onboard_state" not in st.session_state:
-        st.session_state.onboard_state = {
-            "messages": [],
-            "student_profile": None
-        }
-    
-    st.title("🤝 Hi, I'm Lola! Let's Get You Started! 🕷️")
-    
-    # Add back button with confirmation dialog
-    if "show_exit_confirmation" not in st.session_state:
-        st.session_state.show_exit_confirmation = False
-    
     user = getattr(st, "user", None)
     logged_in = user and user.get("is_logged_in", False)
-    if logged_in:
+    if not logged_in:
+        st.info("Before we create your account, please sign in with Google.")
+        if st.button("Sign in with Google"):
+            st.login()
+        if st.button("← Back to Landing Page"):
+            go_back_to_landing()
+    else:
+        if "onboard_state" not in st.session_state:
+            st.session_state.onboard_state = {
+                "messages": [],
+                "student_profile": None
+            }
+        
+        st.title("🤝 Hi, I'm Lola! Let's Get You Started! 🕷️")
+        
+        # Add back button with confirmation dialog
+        if "show_exit_confirmation" not in st.session_state:
+            st.session_state.show_exit_confirmation = False
+        
         if st.button("Logout"):
             st.logout()
             st.session_state.username = ""
             st.session_state.user_data = {}
             st.session_state.current_page = "landing"
             st.rerun()
-    else:
-        if st.button("← Back to Landing Page"):
-            st.session_state.show_exit_confirmation = True    
-        # Show confirmation dialog when back button is clicked
-        if st.session_state.show_exit_confirmation:
-            st.warning("Are you sure you want to cancel sign up? All your information will not be saved.")
+        
+        # Initial greeting when first arriving at this page
+        if not st.session_state.onboard_state["messages"]:
+            st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
+            st.rerun()
+        
+        # Display conversation history
+        messages = utils.convert_to_streamlit_messages(st.session_state.onboard_state["messages"])
+        for message in messages:
+            if message["role"] != "system":
+                with st.chat_message(message["role"]):
+                    st.write(message["content"])
+        
+        # Process user input
+        user_input = st.chat_input("Type your response here...")
+        
+        if user_input:
+            st.session_state.onboard_state["messages"].append({"role": "user", "content": user_input})
+            st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
+            st.rerun()
+        student_profile = st.session_state.onboard_state.get("student_profile")
+        if student_profile:
+            st.success("✅ You're all set! Here's what I learned about you:")
+            st.json(student_profile)
+
+            # If user is logged in, ask for confirmation to create account
+            user_name = user.get("name", "")
+            user_email = user.get("email", "")
+
+            st.write(f"You're signed in as **{user_name}** ({user_email}).")
+            st.write("Would you like to create your AP CSA account with this information?")
+
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Yes, go back"):
-                    del st.session_state.onboard_state
-                    st.session_state.show_exit_confirmation = False
-                    go_back_to_landing()
+                if st.button("✅ Yes, create my account"):
+                    # Save to MongoDB and session_state
+                    if not hasattr(st.session_state, "user_data"):
+                        st.session_state.user_data = student_profile
+                    st.session_state.user_data["username"] = user_name
+                    st.session_state.user_data["email"] = user_email
+                    creation_time = datetime.now()
+                    st.session_state.user_data["created_at"] = creation_time
+                    st.session_state.user_data["last_login"] = creation_time
+                    st.session_state.user_data["current_topic"] = "What is a computer?"
+                    st.session_state.user_data["previous_topic"] = ""
+                    if create_new_user(st.session_state.user_data):
+                        st.success("🎉 Your account has been created successfully!")
+                        st.session_state.onboard_state = None
+                        st.session_state.current_page = "main"
+                        st.rerun()
+
             with col2:
-                if st.button("No, continue sign up"):
-                    st.session_state.show_exit_confirmation = False
+                if st.button("❌ No, go back"):
+                    st.session_state.onboard_state["student_profile"] = None
                     st.rerun()
-    
-    # Initial greeting when first arriving at this page
-    if not st.session_state.onboard_state["messages"]:
-        st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
-        st.rerun()
-    
-    # Display conversation history
-    messages = utils.convert_to_streamlit_messages(st.session_state.onboard_state["messages"])
-    for message in messages:
-        if message["role"] != "system":
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
-    
-    # Process user input
-    user_input = st.chat_input("Type your response here...")
-    
-    if user_input:
-        st.session_state.onboard_state["messages"].append({"role": "user", "content": user_input})
-        st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
-        st.rerun()
-    student_profile = st.session_state.onboard_state.get("student_profile")
-    if student_profile:
-        st.success("✅ You're all set! Here's what I learned about you:")
-        st.json(student_profile)
-
-        # Try to get user info
-        if not logged_in:
-            st.info("Before we create your account, please sign in with Google.")
-            if st.button("Sign in with Google"):
-                st.login()
-            return  # Wait until user logs in
-
-        # If user is logged in, ask for confirmation to create account
-        user_name = user.get("name", "")
-        user_email = user.get("email", "")
-
-        st.write(f"You're signed in as **{user_name}** ({user_email}).")
-        st.write("Would you like to create your AP CSA account with this information?")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✅ Yes, create my account"):
-                # Save to MongoDB and session_state
-                if not hasattr(st.session_state, "user_data"):
-                    st.session_state.user_data = student_profile
-                st.session_state.user_data["username"] = user_name
-                st.session_state.user_data["email"] = user_email
-                creation_time = datetime.now()
-                st.session_state.user_data["created_at"] = creation_time
-                st.session_state.user_data["last_login"] = creation_time
-                st.session_state.user_data["current_topic"] = "What is a computer?"
-                st.session_state.user_data["previous_topic"] = ""
-                if create_new_user(st.session_state.user_data):
-                    st.success("🎉 Your account has been created successfully!")
-                    st.session_state.onboard_state = None
-                    st.session_state.current_page = "main"
-                    st.rerun()
-
-        with col2:
-            if st.button("❌ No, go back"):
-                st.session_state.onboard_state["student_profile"] = None
-                st.rerun()
 
 def main():
     # Initialize session state for page navigation
