@@ -77,3 +77,17 @@ def convert_to_streamlit_messages(langgraph_messages):
         elif isinstance(msg, SystemMessage):
             streamlit_messages.append({"role": "system", "content": msg.content})
     return streamlit_messages
+
+def go_to_page(page_name: str):
+    """Navigate to a specified page in the application.
+    
+    Args:
+        page_name (str): The name of the page to navigate to. Valid values are:
+            - "landing": The landing page
+            - "login": The login page
+            - "customer_service": The customer service/onboarding page
+            - "csa_chat": The CSA chat interface
+            - "main": The main tutoring interface
+    """
+    st.session_state.current_page = page_name
+    st.rerun()

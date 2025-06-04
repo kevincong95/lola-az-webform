@@ -68,9 +68,8 @@ def lola_main():
                     # TODO: Update MongoDB
                     st.session_state.user_data = {}
                     st.session_state.messages = []
-                    st.session_state.current_page = "landing"
+                    utils.go_to_page("landing")
                     st.logout()
-                    st.rerun()
             with col2:
                 if st.button("No, return to session"):
                     st.rerun()
@@ -140,9 +139,8 @@ def lola_main():
                 # TODO: write message history to long term memory
                 st.session_state.user_data = {}
                 st.session_state.messages = []
-                st.session_state.current_page = "landing"
+                utils.go_to_page("landing")
                 st.logout()
-                st.rerun()
             else:
                 # User provided something else
                 with st.chat_message("assistant"):

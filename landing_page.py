@@ -5,6 +5,7 @@ import utils
 from datetime import datetime
 from lola_streamlit import lola_main
 from onboard_agent import sally_graph
+from csa_chat import run_csa_chat
 
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
@@ -31,11 +32,6 @@ def create_new_user(user_data, password = None):
     except Exception as e:
         return False, f"Error creating user: {e}"
 
-def go_back_to_landing():
-    """Redirect user back to the landing page."""
-    st.session_state.current_page = "landing"
-    st.rerun()
-
 def display_landing_page():
     """Display the landing page with options for new and returning users."""
     st.markdown("<div style='text-align: center;'><h3>🕸️ Welcome to Fastlearn.ai! 🕸️</h3></div>", unsafe_allow_html=True)
@@ -43,17 +39,16 @@ def display_landing_page():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write("### Returning FastLearner?")
-        st.write("Please log in to continue your learning journey!")
+        st.write("### Ready to FastLearn?")
+        st.write("Please log in to onboard your account or continue your learning journey!")
         if st.button("Log in with Google", icon=":material/login:"):
             st.login()
     
     with col2:
         st.write("### New to FastLearn?")
-        st.write("Welcome! Please chat with Lola to create an account or for more details.")
-        if st.button("Chat with Lola", key="signup_button"):
-            st.session_state.current_page = "customer_service"
-            st.rerun()
+        st.write("Lola is here to answer your questions about AP CSA and help you get started.")
+        if st.button("Chat with Lola", key="chat_button"):
+            utils.go_to_page("csa_chat")
 
 # Authentication Functions
 def check_password():
@@ -73,7 +68,7 @@ def check_password():
         if not st.session_state.authentication_status:
             st.header("Login")
             if st.button("← Back to Landing Page"):
-                go_back_to_landing()
+                utils.go_to_page("landing")
             
             username = st.text_input("Username or Email", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
@@ -131,7 +126,7 @@ def run_customer_service_agent():
         if st.button("Sign in with Google"):
             st.login()
         if st.button("← Back to Landing Page"):
-            go_back_to_landing()
+            utils.go_to_page("landing")
     else:
         if "onboard_state" not in st.session_state:
             st.session_state.onboard_state = {
@@ -149,8 +144,7 @@ def run_customer_service_agent():
             st.logout()
             st.session_state.username = ""
             st.session_state.user_data = {}
-            st.session_state.current_page = "landing"
-            st.rerun()
+            utils.go_to_page("landing")
         
         # Initial greeting when first arriving at this page
         if not st.session_state.onboard_state["messages"]:
@@ -169,7 +163,8 @@ def run_customer_service_agent():
         
         if user_input:
             st.session_state.onboard_state["messages"].append({"role": "user", "content": user_input})
-            st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
+            with st.spinner("Thinking..."):
+                st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
             st.rerun()
         student_profile = st.session_state.onboard_state.get("student_profile")
         if student_profile:
@@ -227,9 +222,9 @@ def main():
         existing_user = db["students"].find_one({"email": user["email"]})
         if existing_user:
             st.session_state.user_data = existing_user
-            st.session_state.current_page = "main"
+            utils.go_to_page("main")
         else:
-            st.session_state.current_page = "customer_service"
+            utils.go_to_page("customer_service")
     
     # Handle page navigation
     if st.session_state.current_page == "landing":
@@ -239,6 +234,8 @@ def main():
             lola_main()
     elif st.session_state.current_page == "customer_service":
         run_customer_service_agent()
+    elif st.session_state.current_page == "csa_chat":
+        run_csa_chat()
     elif st.session_state.current_page == "main":
         lola_main()
 
