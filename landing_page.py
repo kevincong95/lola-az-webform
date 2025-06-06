@@ -6,16 +6,6 @@ from lola_streamlit import lola_main
 from onboard_agent import sally_graph
 from csa_chat import run_csa_chat
 
-# Setup page config - this must be the first Streamlit command
-if not hasattr(st.session_state, '_page_config_set'):
-    st.set_page_config(
-        page_title="AI Tutoring System",
-        page_icon="🕸️",
-        layout="centered",
-        initial_sidebar_state="auto"
-    )
-    st.session_state._page_config_set = True
-
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
     client = st.session_state.mongo_client
