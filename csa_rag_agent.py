@@ -1,6 +1,5 @@
 from typing import Annotated, Sequence, TypedDict
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder

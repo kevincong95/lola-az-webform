@@ -1,11 +1,20 @@
 import hashlib
 import streamlit as st
 import utils
-
 from datetime import datetime
 from lola_streamlit import lola_main
 from onboard_agent import sally_graph
 from csa_chat import run_csa_chat
+
+# Setup page config - this must be the first Streamlit command
+if not hasattr(st.session_state, '_page_config_set'):
+    st.set_page_config(
+        page_title="AI Tutoring System",
+        page_icon="🕸️",
+        layout="centered",
+        initial_sidebar_state="auto"
+    )
+    st.session_state._page_config_set = True
 
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
@@ -203,6 +212,7 @@ def run_customer_service_agent():
                     st.rerun()
 
 def main():
+    """Main function to handle page routing."""
     # Initialize session state for page navigation
     if "current_page" not in st.session_state:
         st.session_state.current_page = "landing"
@@ -214,17 +224,19 @@ def main():
     # Check Streamlit built-in login
     user = getattr(st, "user", None)
     is_logged_in = user and user.get("is_logged_in", False)
+    
+    # Handle authentication and page routing
     if is_logged_in:
-        st.session_state.username = user["name"]
-
-        # User is logged in; check MongoDB for this user
-        db = st.session_state.mongo_client[utils.MONGO_DB_NAME]
-        existing_user = db["students"].find_one({"email": user["email"]})
-        if existing_user:
-            st.session_state.user_data = existing_user
-            utils.go_to_page("main")
-        else:
-            utils.go_to_page("customer_service")
+        if "username" not in st.session_state:
+            st.session_state.username = user["name"]
+            # User is logged in; check MongoDB for this user
+            db = st.session_state.mongo_client[utils.MONGO_DB_NAME]
+            existing_user = db["students"].find_one({"email": user["email"]})
+            if existing_user:
+                st.session_state.user_data = existing_user
+                st.session_state.current_page = "main"
+            else:
+                st.session_state.current_page = "customer_service"
     
     # Handle page navigation
     if st.session_state.current_page == "landing":
@@ -240,12 +252,4 @@ def main():
         lola_main()
 
 if __name__ == "__main__":
-    # Setup page config
-    st.set_page_config(
-        page_title="AI Tutoring System",
-        page_icon="🕸️",
-        layout="centered",
-        initial_sidebar_state="auto"
-    )
-
     main()
