@@ -231,9 +231,6 @@ def main():
     # Handle page navigation
     if st.session_state.current_page == "landing":
         display_landing_page()
-    elif st.session_state.current_page == "login":        
-        if check_password():
-            lola_main()
     elif st.session_state.current_page == "customer_service":
         run_customer_service_agent()
     elif st.session_state.current_page == "csa_chat":

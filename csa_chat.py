@@ -7,37 +7,24 @@ def clear_chat_history():
     """Clear the chat history from session state."""
     if "csa_messages" in st.session_state:
         del st.session_state.csa_messages
-    if "show_exit_dialog" in st.session_state:
-        del st.session_state.show_exit_dialog
 
 def run_csa_chat():
     """Run the CSA chat interface."""
     st.title("Chat with Lola about AP CSA")
     
-    # Initialize session state for exit dialog
-    if "show_exit_dialog" not in st.session_state:
-        st.session_state.show_exit_dialog = False
-    
-    # Handle back button
-    if st.button("← Back to Landing Page"):
-        st.session_state.show_exit_dialog = True
-    
-    # Show exit dialog if back button was pressed
-    if st.session_state.show_exit_dialog:
-        st.warning("Do you really want to pause the chat? We can pick up where we left off if you like!")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("Exit, save chat history"):
-                utils.go_to_page("landing")
-        with col2:
-            if st.button("Exit, clear chat history"):
-                clear_chat_history()
-                utils.go_to_page("landing")
-        with col3:
-            if st.button("Continue Chatting"):
-                st.session_state.show_exit_dialog = False
-                st.rerun()
-        return
+    # Add sidebar
+    with st.sidebar:
+        st.write("### Navigation")
+        if st.button("← Back to Landing Page"):
+            utils.go_to_page("landing")
+            
+        st.write("---")
+        st.write("### Create Account")
+        if st.button("Sign in with Google"):
+            st.login()
+            # After successful login, redirect to customer service
+            if getattr(st, "user", None) and st.user.get("is_logged_in", False):
+                utils.go_to_page("customer_service")
     
     # Initialize chat history with welcome message
     if "csa_messages" not in st.session_state:
