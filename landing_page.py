@@ -123,11 +123,26 @@ def display_landing_page():
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-        
         
         if st.button("Chat with Lola", key="chat_button", use_container_width=True, type="primary"):
             utils.go_to_page("csa_chat")
+    
+    # Add learning tools section
+    st.markdown("---")  # Add a separator
+    st.markdown("""
+    <div style='text-align: center; margin: 2rem 0;'>
+        <h2 style='color: #9747FF; font-size: 2rem;'>Learning Tools</h2>
+        <p style='color: #CCCCCC; font-size: 1.2rem;'>Access our interactive tools to enhance your learning experience</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    tool_col1, tool_col2 = st.columns(2)
+    with tool_col1:
+        if st.button("💻 Code Playground", use_container_width=True, type="secondary"):
+            utils.go_to_page("simple_ide")
+    with tool_col2:
+        if st.button("🎨 Interactive Whiteboard", use_container_width=True, type="secondary"):
+            utils.go_to_page("whiteboard")
 
 # Authentication Functions
 def check_password():
@@ -342,6 +357,12 @@ def main():
         run_csa_chat()
     elif st.session_state.current_page == "main":
         lola_main()
+    elif st.session_state.current_page == "simple_ide":
+        from simple_ide import display_simple_ide
+        display_simple_ide()
+    elif st.session_state.current_page == "whiteboard":
+        from whiteboard import display_interactive_whiteboard
+        display_interactive_whiteboard()
 
 if __name__ == "__main__":
     main()
