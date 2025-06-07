@@ -50,29 +50,56 @@ def start_new_session(current_topic, previous_topic, session_type):
 def lola_main():
     if not hasattr(st.session_state, "login_time"):
         st.session_state.login_time = datetime.now()
-    st.title("🎓 AI-Powered Tutoring System")
-    st.write(f"Welcome back, {st.session_state.user_data['username']}! Lola hasn't seen you since {st.session_state.user_data.get('last_login', st.session_state.login_time)}. ")
-    user_topic = st.session_state.user_data.get('current_topic', "What is a computer?")
-    previous_topic = st.session_state.user_data.get('previous_topic', "")
-    st.write(f"Are you ready to begin your session on '{user_topic}'? Just hit 'Start Session'!")
-
-    # Add a small user info section at the top right
+    
+    # Add sidebar with logo and user info
     with st.sidebar:
+        # Display logo centered
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style='text-align: center;'>
+                <img src="data:image/jpg;base64,{}" 
+                     style='width: 300px; height: 300px; object-fit: contain;'/>
+            </div>
+            """.format(
+                __import__('base64').b64encode(open("assets/FullLogo.jpg", "rb").read()).decode()
+            ), unsafe_allow_html=True)
+        st.markdown("---")
+        
         st.info(f"Logged in as: {st.session_state.user_data['username']}")
-        if st.button("Logout"):
+        if st.button("🚪 Logout", use_container_width=True):
             st.warning("Hey, if you're busy and need a break, I get it. Don't worry, all your progress will be saved!")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Yes, log out"):
                     # Clear authentication status and user data
-                    # TODO: Update MongoDB
+                    if "demo_user" in st.session_state:
+                        del st.session_state.demo_user
                     st.session_state.user_data = {}
                     st.session_state.messages = []
                     utils.go_to_page("landing")
-                    st.logout()
             with col2:
                 if st.button("No, return to session"):
                     st.rerun()
+    
+    # Main content with custom styling
+    st.markdown("""
+    <div style='text-align: center; margin-bottom: 2rem;'>
+        <h1 style='color: #9747FF; font-size: 2.5rem; margin-bottom: 0.5rem;'>AI-Powered Tutoring System</h1>
+        <p style='font-size: 1.1rem; color: #CCCCCC;'>Welcome back! Ready to continue your learning journey?</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user_topic = st.session_state.user_data.get('current_topic', "What is a computer?")
+    previous_topic = st.session_state.user_data.get('previous_topic', "")
+    
+    st.markdown(f"""
+    <div style='background: linear-gradient(135deg, #1E1E2E, #2E2E3E); padding: 1.5rem; border-radius: 10px; margin: 1rem 0; border-left: 4px solid #9747FF;'>
+        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Welcome back, <strong style='color: #9747FF;'>{st.session_state.user_data['username']}</strong>!</p>
+        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Lola hasn't seen you since {st.session_state.user_data.get('last_login', st.session_state.login_time)}</p>
+        <p style='color: #CCCCCC; margin: 0;'>Ready to begin your session on <strong style='color: #9747FF;'>'{user_topic}'</strong>? Just hit 'Start Session'!</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -136,11 +163,11 @@ def lola_main():
                     
             elif "exit" in user_choice:
                 # User wants to exit; clear authentication status and user data
-                # TODO: write message history to long term memory
+                if "demo_user" in st.session_state:
+                    del st.session_state.demo_user
                 st.session_state.user_data = {}
                 st.session_state.messages = []
                 utils.go_to_page("landing")
-                st.logout()
             else:
                 # User provided something else
                 with st.chat_message("assistant"):

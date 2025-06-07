@@ -3,3 +3,10 @@ port = 8501
 address = "0.0.0.0"
 headless = true
 enableCORS = true
+
+[theme]
+primaryColor = "#9747FF"
+backgroundColor = "#0B0B0F"
+secondaryBackgroundColor = "#000000"
+textColor = "#FFFFFF"
+font = "sans serif"
