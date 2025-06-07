@@ -1,10 +1,16 @@
 import hashlib
 import streamlit as st
 import utils
+import base64
 from datetime import datetime
 from lola_streamlit import lola_main
 from onboard_agent import sally_graph
 from csa_chat import run_csa_chat
+
+def get_avatar_base64(image_path):
+    """Convert image to base64 for avatar display."""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
@@ -33,20 +39,94 @@ def create_new_user(user_data, password = None):
 
 def display_landing_page():
     """Display the landing page with options for new and returning users."""
-    st.markdown("<div style='text-align: center;'><h3>🕸️ Welcome to Fastlearn.ai! 🕸️</h3></div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("### Ready to FastLearn?")
+    # Add sidebar with logo and login
+    with st.sidebar:
+        # Display logo centered
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style='text-align: center;'>
+                <img src="data:image/jpg;base64,{}" 
+                     style='width: 300px; height: 300px; object-fit: contain;'/>
+            </div>
+            """.format(
+                __import__('base64').b64encode(open("assets/FullLogo.jpg", "rb").read()).decode()
+            ), unsafe_allow_html=True)
+        st.markdown("---")
+        
+        st.markdown("### Ready to FastLearn?")
         st.write("Please log in to onboard your account or continue your learning journey!")
-        if st.button("Log in with Google", icon=":material/login:"):
-            st.login()
+        if st.button("🔐 Log in with Google", use_container_width=True):
+            # For demo purposes, simulate login
+            st.session_state.demo_user = {
+                "name": "Demo User",
+                "email": "demo@example.com",
+                "is_logged_in": True
+            }
+            utils.go_to_page("customer_service")
+    
+    # Main content with Lola's avatar
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.write("### New to FastLearn?")
-        st.write("Lola is here to answer your questions about AP CSA and help you get started.")
-        if st.button("Chat with Lola", key="chat_button"):
+        # Lola's circular avatar with custom CSS
+        st.markdown("""
+        <div style='text-align: center; margin: 3rem 0;'>
+            <img src="data:image/png;base64,{}" 
+                 style='width: 150px; height: 150px; border-radius: 50%; object-fit: cover;'/>
+        </div>
+        """.format(
+            __import__('base64').b64encode(open("assets/lola.png", "rb").read()).decode()
+        ), unsafe_allow_html=True)
+        
+        st.markdown("""
+        <style>
+        @keyframes typewriter {
+            0% { 
+                width: 0;
+                border-right: 2px solid #9747FF;
+            }
+            70% { 
+                width: 100%;
+                border-right: 2px solid #9747FF;
+            }
+            100% { 
+                width: 100%;
+                border-right: transparent;
+            }
+        }
+        
+        .typewriter-text {
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 2px solid transparent;
+            width: 0;
+            animation: typewriter 4s ease-in-out infinite;
+            font-family: 'Courier New', monospace;
+            display: inline-block;
+            min-width: 660px;
+        }
+        </style>
+        
+        <div style='text-align: center; margin: 2rem 0;'>
+            <h2 style='color: #9747FF; margin-bottom: 0.5rem; font-size: 2.5rem;'>Hi! I am Lola</h2>
+            <div style='height: 2rem; display: flex; justify-content: center; align-items: center;'>
+                <p class='typewriter-text' style='color: #CCCCCC; font-size: 1.3rem; margin: 0;'>
+                    Allow me to spin the perfect coding lesson for you!
+                </p>
+            </div>
+            <div style='display: flex; justify-content: center; align-items: center; margin: 0.5rem 0;'>
+                <h2 style='color: #9747FF; font-size: 1.6rem; font-weight: normal; font-style: italic; white-space: nowrap; margin: 0;'>
+                    How? What makes me special? Let's chat to get all your questions answered.
+                </h2>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        
+        
+        if st.button("Chat with Lola", key="chat_button", use_container_width=True, type="primary"):
             utils.go_to_page("csa_chat")
 
 # Authentication Functions
@@ -101,7 +181,7 @@ def check_password():
                             st.session_state.user_data = user
                             
                             # Use success message temporarily before rerun
-                            st.success(f"Welcome, {st.session_state.username}!")
+                            st.success(f"Welcome, {st.session_state.get('username', 'User')}!")
                             st.rerun()
                         else:
                             st.error("Password is incorrect")
@@ -118,14 +198,10 @@ def check_password():
 
 def run_customer_service_agent():
     """Handle the customer service agent conversation for onboarding new users."""
-    user = getattr(st, "user", None)
+    user = getattr(st, "user", None) or st.session_state.get("demo_user", None)
     logged_in = user and user.get("is_logged_in", False)
     if not logged_in:
-        st.info("Before we create your account, please sign in with Google.")
-        if st.button("Sign in with Google"):
-            st.login()
-        if st.button("← Back to Landing Page"):
-            utils.go_to_page("landing")
+        st.login()
     else:
         if "onboard_state" not in st.session_state:
             st.session_state.onboard_state = {
@@ -133,17 +209,35 @@ def run_customer_service_agent():
                 "student_profile": None
             }
         
-        st.title("🤝 Hi, I'm Lola! Let's Get You Started! 🕷️")
+        # Get user's name
+        user_name = user.get("given_name", "")
+        
+        # Create columns for header and logout button
+        col1, col2 = st.columns([3, 1])
+        
+        # Main content with custom styling in first column
+        with col1:
+            st.markdown(f"""
+            <div style='text-align: left; margin-bottom: 2rem;'>
+                <h1 style='color: #9747FF; font-size: 2rem; margin-bottom: 0.5rem;'>Nice to meet you {user_name}, I'm Lola!</h1>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Logout button in second column
+        with col2:
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # Add some padding
+            if st.button("🚪 Logout", use_container_width=True):
+                # Clear demo user data
+                if "demo_user" in st.session_state:
+                    del st.session_state.demo_user
+                st.session_state.username = ""
+                st.session_state.user_data = {}
+                st.logout()
+                utils.go_to_page("landing")
         
         # Add back button with confirmation dialog
         if "show_exit_confirmation" not in st.session_state:
             st.session_state.show_exit_confirmation = False
-        
-        if st.button("Logout"):
-            st.logout()
-            st.session_state.username = ""
-            st.session_state.user_data = {}
-            utils.go_to_page("landing")
         
         # Initial greeting when first arriving at this page
         if not st.session_state.onboard_state["messages"]:
@@ -151,9 +245,13 @@ def run_customer_service_agent():
             st.rerun()
         
         # Display conversation history
+        lola_avatar = get_avatar_base64("assets/lola.png")
         messages = utils.convert_to_streamlit_messages(st.session_state.onboard_state["messages"])
         for message in messages:
-            if message["role"] != "system":
+            if message["role"] == "assistant":
+                with st.chat_message(message["role"], avatar=f"data:image/png;base64,{lola_avatar}"):
+                    st.write(message["content"])
+            elif message["role"] == "user":
                 with st.chat_message(message["role"]):
                     st.write(message["content"])
         
@@ -165,6 +263,7 @@ def run_customer_service_agent():
             with st.spinner("Thinking..."):
                 st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
             st.rerun()
+
         student_profile = st.session_state.onboard_state.get("student_profile")
         if student_profile:
             st.success("✅ You're all set! Here's what I learned about you:")
@@ -190,11 +289,14 @@ def run_customer_service_agent():
                     st.session_state.user_data["last_login"] = creation_time
                     st.session_state.user_data["current_topic"] = "What is a computer?"
                     st.session_state.user_data["previous_topic"] = ""
-                    if create_new_user(st.session_state.user_data):
+                    success, message = create_new_user(st.session_state.user_data)
+                    if success:
                         st.success("🎉 Your account has been created successfully!")
                         st.session_state.onboard_state = None
                         st.session_state.current_page = "main"
                         st.rerun()
+                    else:
+                        st.error(f"Error creating account: {message}")
 
             with col2:
                 if st.button("❌ No, go back"):
@@ -211,8 +313,8 @@ def main():
     if "mongodb_config" not in st.session_state:
         st.session_state.mongo_client = utils.get_mongodb_connection()
     
-    # Check Streamlit built-in login
-    user = getattr(st, "user", None)
+    # Check Streamlit built-in login or demo user
+    user = getattr(st, "user", None) or st.session_state.get("demo_user", None)
     is_logged_in = user and user.get("is_logged_in", False)
     
     # Handle authentication and page routing
@@ -220,11 +322,14 @@ def main():
         if "username" not in st.session_state:
             st.session_state.username = user["name"]
             # User is logged in; check MongoDB for this user
-            db = st.session_state.mongo_client[utils.MONGO_DB_NAME]
-            existing_user = db["students"].find_one({"email": user["email"]})
-            if existing_user:
-                st.session_state.user_data = existing_user
-                st.session_state.current_page = "main"
+            if st.session_state.mongo_client:
+                db = st.session_state.mongo_client[utils.MONGO_DB_NAME]
+                existing_user = db["students"].find_one({"email": user["email"]})
+                if existing_user:
+                    st.session_state.user_data = existing_user
+                    st.session_state.current_page = "main"
+                else:
+                    st.session_state.current_page = "customer_service"
             else:
                 st.session_state.current_page = "customer_service"
     
