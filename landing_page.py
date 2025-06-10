@@ -1,11 +1,11 @@
-import hashlib
+import base64, hashlib, os
 import streamlit as st
 import utils
-import base64
+
+from csa_chat import run_csa_chat
 from datetime import datetime
 from lola_streamlit import lola_main
 from onboard_agent import sally_graph
-from csa_chat import run_csa_chat
 
 def get_avatar_base64(image_path):
     """Convert image to base64 for avatar display."""
@@ -144,85 +144,39 @@ def display_landing_page():
         if st.button("🎨 Interactive Whiteboard", use_container_width=True, type="secondary"):
             utils.go_to_page("whiteboard")
 
-# Authentication Functions
-def check_password():
-    """Returns `True` if the user had the correct password."""
-    
-    # Initialize session state for authentication
-    if "authentication_status" not in st.session_state:
-        st.session_state.authentication_status = False
-    if "user_data" not in st.session_state:
-        st.session_state.user_data = {}
-    if st.session_state.authentication_status or (getattr(st, "user", None) and st.user.get("is_logged_in", False)):
-        return True
-    
-    # If not authenticated, show login form in a container
-    # This container will be emptied/replaced after successful login
-    with st.container():
-        if not st.session_state.authentication_status:
-            st.header("Login")
-            if st.button("← Back to Landing Page"):
-                utils.go_to_page("landing")
-            
-            username = st.text_input("Username or Email", key="login_username")
-            password = st.text_input("Password", type="password", key="login_password")
-            
-            if st.button("Log in with username and password"):
-                client = st.session_state.mongo_client
-                if not client:
-                    st.error("Could not connect to database. Please try again later.")
-                    return False
-                
-                try:
-                    # Access your database and collection
-                    users_collection = client[utils.MONGO_DB_NAME]['students']
-                    # Find the user
-                    user = users_collection.find_one({
-                        "$or": [
-                            {"username": username},
-                            {"email": username}
-                        ]
-                    })
-                    
-                    if user:
-                        # Hash the input password with the same method as stored in your DB, such as SHA-256
-                        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                        stored_password = user['password_hash']
-                        is_password_correct = (hashed_password == stored_password)
-                        
-                        if is_password_correct:
-                            st.session_state.authentication_status = True
-                            st.session_state.login_time = datetime.now()
-                            st.session_state.user_data = user
-                            
-                            # Use success message temporarily before rerun
-                            st.success(f"Welcome, {st.session_state.get('username', 'User')}!")
-                            st.rerun()
-                        else:
-                            st.error("Password is incorrect")
-                            return False
-                    else:
-                        st.error("Username/email not found")
-                        return False
-                        
-                except Exception as e:
-                    st.error(f"Authentication error: {e}")
-                    return False
-    
-    return st.session_state.authentication_status
-
 def run_customer_service_agent():
     """Handle the customer service agent conversation for onboarding new users."""
     user = getattr(st, "user", None) or st.session_state.get("demo_user", None)
     logged_in = user and user.get("is_logged_in", False)
     if not logged_in:
         st.login()
+        # Set button counter to -1 when logged out
+        if "onboard_state" in st.session_state:
+            st.session_state.onboard_state["button_counter"] = -1
     else:
         if "onboard_state" not in st.session_state:
             st.session_state.onboard_state = {
                 "messages": [],
-                "student_profile": None
+                "student_profile": None,
+                "awaiting_choice": False,
+                "current_options": [],
+                "button_counter": -1,  # Initialize to -1
+                "last_message_index": -1,  # Track the last message index for button keys
+                "last_question_index": -1,  # Track the index of the last question
+                "pending_response": None  # Track pending responses
             }
+        # Ensure button_counter exists and is -1 if not logged in
+        elif "button_counter" not in st.session_state.onboard_state:
+            st.session_state.onboard_state["button_counter"] = -1
+        # Ensure last_message_index exists
+        if "last_message_index" not in st.session_state.onboard_state:
+            st.session_state.onboard_state["last_message_index"] = -1
+        # Ensure last_question_index exists
+        if "last_question_index" not in st.session_state.onboard_state:
+            st.session_state.onboard_state["last_question_index"] = -1
+        # Ensure pending_response exists
+        if "pending_response" not in st.session_state.onboard_state:
+            st.session_state.onboard_state["pending_response"] = None
         
         # Get user's name
         user_name = user.get("given_name", "")
@@ -241,18 +195,18 @@ def run_customer_service_agent():
         # Logout button in second column
         with col2:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # Add some padding
-            if st.button("🚪 Logout", use_container_width=True):
-                # Clear demo user data
+            if st.button("🚪 Logout", use_container_width=True, key="logout_button"):
+                # Clear demo user data and reset button counter to -1
                 if "demo_user" in st.session_state:
                     del st.session_state.demo_user
                 st.session_state.username = ""
                 st.session_state.user_data = {}
+                st.session_state.onboard_state["button_counter"] = -1
+                st.session_state.onboard_state["last_message_index"] = -1
+                st.session_state.onboard_state["last_question_index"] = -1
+                st.session_state.onboard_state["pending_response"] = None
                 st.logout()
                 utils.go_to_page("landing")
-        
-        # Add back button with confirmation dialog
-        if "show_exit_confirmation" not in st.session_state:
-            st.session_state.show_exit_confirmation = False
         
         # Initial greeting when first arriving at this page
         if not st.session_state.onboard_state["messages"]:
@@ -262,21 +216,120 @@ def run_customer_service_agent():
         # Display conversation history
         lola_avatar = get_avatar_base64("assets/lola.png")
         messages = utils.convert_to_streamlit_messages(st.session_state.onboard_state["messages"])
-        for message in messages:
+        
+        # Find the most recent question
+        last_question_idx = -1
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i]["role"] == "assistant" and "a)" in messages[i]["content"].lower() and "b)" in messages[i]["content"].lower():
+                last_question_idx = i
+                break
+        
+        # Only update last_question_index if we found a new question
+        if last_question_idx != st.session_state.onboard_state["last_question_index"]:
+            st.session_state.onboard_state["last_question_index"] = last_question_idx
+            # Reset choice state when a new question is found
+            st.session_state.onboard_state["awaiting_choice"] = True
+            st.session_state.onboard_state["current_options"] = []
+        
+        # Display conversation history
+        for msg_idx, message in enumerate(messages):
             if message["role"] == "assistant":
                 with st.chat_message(message["role"], avatar=f"data:image/png;base64,{lola_avatar}"):
-                    st.write(message["content"])
+                    content = message["content"]
+                    
+                    # Check if this is a question message
+                    if "a)" in content.lower() and "b)" in content.lower():
+                        # Extract options and question text
+                        lines = content.split('\n')
+                        question_lines = []
+                        options = []
+                        
+                        for line in lines:
+                            if any(line.strip().startswith(f"{chr(i)})") for i in range(97, 123)):  # a) through z)
+                                option = line.strip()
+                                if option:
+                                    options.append(option)
+                            else:
+                                question_lines.append(line)
+                        
+                        # Display question without options
+                        question_text = '\n'.join(question_lines).strip()
+                        st.write(question_text)
+                        
+                        if options:
+                            # Find user's response to this question
+                            user_response = None
+                            if msg_idx + 1 < len(messages) and messages[msg_idx + 1]["role"] == "user":
+                                user_response = messages[msg_idx + 1]["content"]
+                            
+                            # Only show buttons for the most recent question
+                            if msg_idx == last_question_idx:
+                                st.session_state.onboard_state["current_options"] = options
+                                # Set button counter to number of options for MCQ
+                                st.session_state.onboard_state["button_counter"] = len(options)
+                                # Update last message index
+                                st.session_state.onboard_state["last_message_index"] = msg_idx
+                                
+                                # Display options as buttons
+                                st.write("Please select your answer:")
+                                cols = st.columns(len(options))
+                                
+                                for i, (col, option) in enumerate(zip(cols, options)):
+                                    with col:
+                                        # Create unique key using message index and option index
+                                        button_key = f"choice_button_msg{msg_idx}_opt{i}"
+                                        
+                                        if st.button(option, use_container_width=True, key=button_key):
+                                            st.session_state.onboard_state["pending_response"] = option
+                            else:
+                                # Display past options with highlighting
+                                st.write("Options:")
+                                for option in options:
+                                    if option == user_response:
+                                        # Highlight the selected option with purple text
+                                        st.markdown(f"<div style='color: #9747FF; padding: 0.5rem; margin: 0.25rem 0;'>{option}</div>", unsafe_allow_html=True)
+                                    else:
+                                        st.markdown(f"<div style='padding: 0.5rem; margin: 0.25rem 0;'>{option}</div>", unsafe_allow_html=True)
+                    else:
+                        # Display regular message
+                        st.write(content)
+                        # Only reset state if this is the most recent message
+                        if msg_idx == len(messages) - 1:
+                            st.session_state.onboard_state["awaiting_choice"] = False
+                            st.session_state.onboard_state["current_options"] = []
+                            st.session_state.onboard_state["button_counter"] = 0
             elif message["role"] == "user":
                 with st.chat_message(message["role"]):
                     st.write(message["content"])
         
-        # Process user input
-        user_input = st.chat_input("Type your response here...")
+        # Show chat input for non-multiple choice questions
+        if not st.session_state.onboard_state["awaiting_choice"]:
+            user_input = st.chat_input("Type your response here...", key="chat_input")
+            if user_input:
+                st.session_state.onboard_state["pending_response"] = user_input
         
-        if user_input:
-            st.session_state.onboard_state["messages"].append({"role": "user", "content": user_input})
+        # Handle any pending response (from either button click or chat input)
+        if st.session_state.onboard_state["pending_response"] is not None:
+            response = st.session_state.onboard_state["pending_response"]
+            # Clear the pending response immediately
+            st.session_state.onboard_state["pending_response"] = None
+            
+            # Update state with the response
+            st.session_state.onboard_state["messages"].append({
+                "role": "user",
+                "content": response
+            })
+            
+            # Reset choice state
+            st.session_state.onboard_state["awaiting_choice"] = False
+            st.session_state.onboard_state["current_options"] = []
+            st.session_state.onboard_state["button_counter"] = 0
+            
+            # Get agent's response
             with st.spinner("Thinking..."):
                 st.session_state.onboard_state = sally_graph.invoke(st.session_state.onboard_state)
+            
+            # Single rerun point for all responses
             st.rerun()
 
         student_profile = st.session_state.onboard_state.get("student_profile")
