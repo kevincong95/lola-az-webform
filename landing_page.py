@@ -220,16 +220,23 @@ def run_customer_service_agent():
         # Find the most recent question
         last_question_idx = -1
         for i in range(len(messages) - 1, -1, -1):
-            if messages[i]["role"] == "assistant" and "a)" in messages[i]["content"].lower() and "b)" in messages[i]["content"].lower():
-                last_question_idx = i
-                break
+            if messages[i]["role"] == "assistant":
+                content = messages[i]["content"].lower()
+                # Check for both the initial role question and regular MCQs
+                if ("are you a student interested in ap csa tutoring" in content and "or are you a parent" in content) or \
+                   ("a)" in content and "b)" in content):
+                    last_question_idx = i
+                    break
         
         # Only update last_question_index if we found a new question
         if last_question_idx != st.session_state.onboard_state["last_question_index"]:
+            # Reset all state when transitioning to a new question
             st.session_state.onboard_state["last_question_index"] = last_question_idx
-            # Reset choice state when a new question is found
             st.session_state.onboard_state["awaiting_choice"] = True
             st.session_state.onboard_state["current_options"] = []
+            st.session_state.onboard_state["button_counter"] = 0
+            st.session_state.onboard_state["last_message_index"] = last_question_idx
+            st.session_state.onboard_state["pending_response"] = None
         
         # Display conversation history
         for msg_idx, message in enumerate(messages):
@@ -238,22 +245,34 @@ def run_customer_service_agent():
                     content = message["content"]
                     
                     # Check if this is a question message
-                    if "a)" in content.lower() and "b)" in content.lower():
-                        # Extract options and question text
-                        lines = content.split('\n')
-                        question_lines = []
-                        options = []
+                    if ("are you a student interested in ap csa tutoring" in content.lower() and "or are you a parent" in content.lower()) or \
+                       ("a)" in content.lower() and "b)" in content.lower()):
                         
-                        for line in lines:
-                            if any(line.strip().startswith(f"{chr(i)})") for i in range(97, 123)):  # a) through z)
-                                option = line.strip()
-                                if option:
-                                    options.append(option)
-                            else:
-                                question_lines.append(line)
+                        # For the initial role question, create options
+                        if "are you a student interested in ap csa tutoring" in content.lower() and "or are you a parent" in content.lower():
+                            question_text = content
+                            options = [
+                                "I am a student interested in AP CSA tutoring",
+                                "I am a parent looking to enroll my student"
+                            ]
+                        else:
+                            # Extract options and question text for regular multiple choice
+                            lines = content.split('\n')
+                            question_lines = []
+                            options = []
+                            
+                            for line in lines:
+                                if any(line.strip().startswith(f"{chr(i)})") for i in range(97, 123)):  # a) through z)
+                                    option = line.strip()
+                                    if option:
+                                        options.append(option)
+                                else:
+                                    question_lines.append(line)
+                            
+                            # Display question without options
+                            question_text = '\n'.join(question_lines).strip()
                         
-                        # Display question without options
-                        question_text = '\n'.join(question_lines).strip()
+                        # Display question text
                         st.write(question_text)
                         
                         if options:
@@ -264,23 +283,20 @@ def run_customer_service_agent():
                             
                             # Only show buttons for the most recent question
                             if msg_idx == last_question_idx:
+                                # Update state before displaying buttons
                                 st.session_state.onboard_state["current_options"] = options
-                                # Set button counter to number of options for MCQ
                                 st.session_state.onboard_state["button_counter"] = len(options)
-                                # Update last message index
                                 st.session_state.onboard_state["last_message_index"] = msg_idx
+                                st.session_state.onboard_state["awaiting_choice"] = True
                                 
                                 # Display options as buttons
                                 st.write("Please select your answer:")
-                                cols = st.columns(len(options))
-                                
-                                for i, (col, option) in enumerate(zip(cols, options)):
-                                    with col:
-                                        # Create unique key using message index and option index
-                                        button_key = f"choice_button_msg{msg_idx}_opt{i}"
-                                        
-                                        if st.button(option, use_container_width=True, key=button_key):
-                                            st.session_state.onboard_state["pending_response"] = option
+                                for i, option in enumerate(options):
+                                    # Create unique key using message index and option index
+                                    button_key = f"choice_button_msg{msg_idx}_opt{i}"
+                                    
+                                    if st.button(option, use_container_width=True, key=button_key):
+                                        st.session_state.onboard_state["pending_response"] = option
                             else:
                                 # Display past options with highlighting
                                 st.write("Options:")
@@ -298,15 +314,17 @@ def run_customer_service_agent():
                             st.session_state.onboard_state["awaiting_choice"] = False
                             st.session_state.onboard_state["current_options"] = []
                             st.session_state.onboard_state["button_counter"] = 0
+                            st.session_state.onboard_state["last_message_index"] = msg_idx
             elif message["role"] == "user":
                 with st.chat_message(message["role"]):
                     st.write(message["content"])
         
-        # Show chat input for non-multiple choice questions
-        if not st.session_state.onboard_state["awaiting_choice"]:
-            user_input = st.chat_input("Type your response here...", key="chat_input")
-            if user_input:
-                st.session_state.onboard_state["pending_response"] = user_input
+        # Always show chat input at the bottom, but disable it for MCQ
+        user_input = st.chat_input("Type your response here..." if not st.session_state.onboard_state["awaiting_choice"] else "Please select an option above...", 
+                                  key="chat_input",
+                                  disabled=st.session_state.onboard_state["awaiting_choice"])
+        if user_input and not st.session_state.onboard_state["awaiting_choice"]:
+            st.session_state.onboard_state["pending_response"] = user_input
         
         # Handle any pending response (from either button click or chat input)
         if st.session_state.onboard_state["pending_response"] is not None:
@@ -319,11 +337,6 @@ def run_customer_service_agent():
                 "role": "user",
                 "content": response
             })
-            
-            # Reset choice state
-            st.session_state.onboard_state["awaiting_choice"] = False
-            st.session_state.onboard_state["current_options"] = []
-            st.session_state.onboard_state["button_counter"] = 0
             
             # Get agent's response
             with st.spinner("Thinking..."):
