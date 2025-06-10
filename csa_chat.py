@@ -1,8 +1,9 @@
+import base64
 import streamlit as st
+import utils
+
 from csa_rag_agent import invoke_agent
 from langchain_core.messages import HumanMessage, AIMessage
-import utils
-import base64
 
 def clear_chat_history():
     """Clear the chat history from session state."""

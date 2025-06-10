@@ -1,12 +1,13 @@
-from typing import Annotated, Sequence, TypedDict
+import os
+from dotenv import load_dotenv
+import utils
+
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import StateGraph, START, END
-import os
-from dotenv import load_dotenv
-import utils
+from typing import Annotated, Sequence, TypedDict
 
 load_dotenv()
 

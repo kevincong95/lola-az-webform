@@ -35,7 +35,7 @@ def chat_node(state: OnboardState):
         Once you have answers to all the questions, call the summarize_to_profile tool and pass in a list of all conversation messages (excluding the system prompt). 
         Do not restate or reformat the summary. Simply call the tool and stop speaking.
 
-        {questionnaire}
+        {questionnaire.read()}
         """
     system = SystemMessage(content=prompt)
     messages = [system] + state.get("messages", [])
