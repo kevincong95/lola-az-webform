@@ -67,19 +67,34 @@ def lola_main():
         st.markdown("---")
         
         st.info(f"Logged in as: {st.session_state.user_data['username']}")
-        if st.button("🚪 Logout", use_container_width=True):
+        
+        # Initialize logout confirmation state if not exists
+        if "show_logout_confirmation" not in st.session_state:
+            st.session_state.show_logout_confirmation = False
+            
+        if not st.session_state.show_logout_confirmation:
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state.show_logout_confirmation = True
+                st.rerun()
+        else:
             st.warning("Hey, if you're busy and need a break, I get it. Don't worry, all your progress will be saved!")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Yes, log out"):
-                    # Clear authentication status and user data
+                    # First call Streamlit's logout
+                    st.logout()
+                    
+                    # Then clear our session state
                     if "demo_user" in st.session_state:
                         del st.session_state.demo_user
                     st.session_state.user_data = {}
                     st.session_state.messages = []
-                    utils.go_to_page("landing")
+                    st.session_state.state = None
+                    st.session_state.current_page = "landing"
+                    st.session_state.show_logout_confirmation = False
             with col2:
                 if st.button("No, return to session"):
+                    st.session_state.show_logout_confirmation = False
                     st.rerun()
     
     # Main content with custom styling
