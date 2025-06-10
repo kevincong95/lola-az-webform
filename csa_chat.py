@@ -10,11 +10,6 @@ def clear_chat_history():
     if "csa_messages" in st.session_state:
         del st.session_state.csa_messages
 
-def get_avatar_base64(image_path):
-    """Convert image to base64 for avatar display."""
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
-
 def run_csa_chat():
     """Run the CSA chat interface."""
     
@@ -60,7 +55,7 @@ def run_csa_chat():
         ]
     
     # Get Lola's avatar
-    lola_avatar = get_avatar_base64("assets/lola.png")
+    lola_avatar = utils.get_avatar_base64("assets/lola.png")
     
     # Display chat messages
     for message in st.session_state.csa_messages:
