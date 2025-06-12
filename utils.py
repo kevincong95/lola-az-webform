@@ -1,5 +1,8 @@
+import base64
+import hashlib
 import os
 import streamlit as st
+import certifi
 
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -33,7 +36,6 @@ def get_mongodb_connection():
     Update connection string with your MongoDB details.
     """
     try:
-        import certifi
         client = MongoClient(
             CONNECTION_STRING,
             tls=True,
@@ -91,3 +93,33 @@ def go_to_page(page_name: str):
     """
     st.session_state.current_page = page_name
     st.rerun()
+
+def create_new_user(user_data, password = None):
+    """Create a new user in the database with provided information."""
+    client = st.session_state.mongo_client
+    if client is None:
+        return False, "Could not connect to database."
+    
+    try:
+        db = client[MONGO_DB_NAME]
+        users_collection = db['students']
+        
+        # Check if email already exists
+        if users_collection.find_one({"email": user_data.get("email", "")}):
+            return False, "Email already exists. Please choose another."
+        
+        # Hash the password
+        if password:
+            user_data["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Insert the new user
+        users_collection.insert_one(user_data)
+        return True, "User created successfully!"
+    
+    except Exception as e:
+        return False, f"Error creating user: {e}"
+
+def get_avatar_base64(image_path):
+    """Convert an image to a base64 string for embedding in HTML/Markdown."""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
