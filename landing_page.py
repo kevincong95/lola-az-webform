@@ -5,10 +5,10 @@ import utils
 PAGE_REGISTRY = {
     "landing": None,  # Will be handled directly
     "customer_service": lambda: __import__("customer_service").display_customer_service(),
-    "csa_chat": lambda: __import__("csa_chat").display_csa_chat(),
-    "main": lambda: __import__("lola_streamlit").display_lola(),
+    "csa_chat": lambda: __import__("csa_chat").run_csa_chat(),
+    "main": lambda: __import__("lola_streamlit").lola_main(),
     "simple_ide": lambda: __import__("simple_ide").display_simple_ide(),
-    "whiteboard": lambda: __import__("whiteboard").display_whiteboard()
+    "whiteboard": lambda: __import__("whiteboard").display_interactive_whiteboard()
 }
 
 def get_page_title(page_name: str) -> str:
@@ -110,7 +110,7 @@ def display_landing():
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Chat with Lola", key="chat_button", use_container_width=True, type="primary"):
+        if st.button("Chat with Lola - I speak 中文 or your preferred language!", key="chat_button", use_container_width=True, type="primary"):
             utils.go_to_page("csa_chat")
     
     # Add learning tools section
