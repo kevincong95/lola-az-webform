@@ -1,12 +1,6 @@
+import io, os, re, sys, tempfile
 import streamlit as st
 import subprocess
-import tempfile
-import os
-import sys
-import io
-import contextlib
-import traceback
-import re
 import utils
 
 class SimpleCodeExecutor:

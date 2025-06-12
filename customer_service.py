@@ -92,14 +92,14 @@ def display_question_options(msg_idx: int, question_text: str, options: list[str
             st.session_state.onboard_state["awaiting_choice"] = True
             
             # Display options as buttons
-            st.write("Please select your answer:")
+            # st.write("Please select your answer:")
             for i, option in enumerate(options):
                 button_key = f"choice_button_msg{msg_idx}_opt{i}"
                 if st.button(option, key=button_key):
                     st.session_state.onboard_state["pending_response"] = option
         else:
             # Display past options with highlighting
-            st.write("Options:")
+            # st.write("Options:")
             for option in options:
                 if option == user_response:
                     st.markdown(f"<div style='color: #9747FF; padding: 0.5rem; margin: 0.25rem 0;'>{option}</div>", 
@@ -244,9 +244,8 @@ def display_customer_service():
             
             # Chat input
             user_input = st.chat_input(
-                "Type your response here..." if not onboard_state.get("awaiting_choice", False) else "Please select an option above...",
-                key="chat_input",
-                disabled=onboard_state.get("awaiting_choice", False)
+                "Type your response here..." if not onboard_state.get("awaiting_choice", False) else "Select an option or type your thoughts...",
+                key="chat_input"
             )
             if user_input and not onboard_state.get("awaiting_choice", False):
                 onboard_state["pending_response"] = user_input
