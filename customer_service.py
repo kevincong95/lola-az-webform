@@ -80,26 +80,48 @@ def extract_question_options(content: str) -> tuple[str, list[str]]:
 
 def display_question_options(msg_idx: int, question_text: str, options: list[str], 
                            last_question_idx: int, messages: list, user_response: str = None):
-    """Display question text and options as buttons or highlighted text."""
+    """Display question text and options as buttons, checkboxes, or highlighted text."""
     st.write(question_text)
     
     if options:
+        # Check if this is a 'pick multiple' question
+        is_multi = "feel free to pick multiple" in question_text.lower()
         if msg_idx == last_question_idx:
-            # Update state before displaying buttons
             st.session_state.onboard_state["current_options"] = options
             st.session_state.onboard_state["button_counter"] = len(options)
             st.session_state.onboard_state["last_message_index"] = msg_idx
             st.session_state.onboard_state["awaiting_choice"] = True
-            
-            # Display options as buttons
-            # st.write("Please select your answer:")
-            for i, option in enumerate(options):
-                button_key = f"choice_button_msg{msg_idx}_opt{i}"
-                if st.button(option, key=button_key):
-                    st.session_state.onboard_state["pending_response"] = option
+
+            if is_multi:
+                # Use checkboxes for each option
+                selected = st.session_state.onboard_state.get(f"multi_selected_{msg_idx}", [False]*len(options))
+                new_selected = []
+                for i, option in enumerate(options):
+                    checked = st.checkbox(option, value=selected[i], key=f"multi_checkbox_{msg_idx}_{i}")
+                    new_selected.append(checked)
+                st.session_state.onboard_state[f"multi_selected_{msg_idx}"] = new_selected
+                # Text input for clarification
+                clarification = st.text_input(
+                    "Additional:",
+                    value=st.session_state.onboard_state.get(f"clarification_{msg_idx}", ""),
+                    key=f"clarification_{msg_idx}"
+                )
+                st.session_state.onboard_state[f"clarification_{msg_idx}"] = clarification
+                # Submit button
+                if st.button("Submit", key=f"multi_submit_{msg_idx}"):
+                    selected_options = [opt for opt, sel in zip(options, new_selected) if sel]
+                    response = "; ".join(selected_options)
+                    if clarification.strip():
+                        response = f"{response}. {clarification.strip()}"
+                    st.session_state.onboard_state["pending_response"] = response
+            else:
+                # Display options as buttons (single select)
+                for i, option in enumerate(options):
+                    button_key = f"choice_button_msg{msg_idx}_opt{i}"
+                    if st.button(option, key=button_key):
+                        st.session_state.onboard_state["pending_response"] = option
         else:
             # Display past options with highlighting
-            # st.write("Options:")
             for option in options:
                 if option == user_response:
                     st.markdown(f"<div style='color: #9747FF; padding: 0.5rem; margin: 0.25rem 0;'>{option}</div>", 

@@ -67,25 +67,35 @@ open-end
 3. Ask someone for help
 4. Take a break and come back to it
 5. Search for the instructions or rewatch a lesson carefully
-	5.3 How do you feel about learning by trial and error?
-1. Love it, always want to see if I can break something
-2. It’s okay, but not my favorite
-3. It makes me nervous to see I am wrong
-4. Failing frustrates me so I try my best to avoid it
-	5.4 Which of these sounds most fun to you in a class project?
+	5.3 Which types of awards motivate you the most? Feel free to pick multiple or add your own.
+1. Encouraging words and a funny joke or story
+2. Scores and points for prizes, medals and trophies
+3. Animations and sound effects
+4. Achievement certificates to put on social media
+5. Unlockable avatars, skins, advanced topics or app features, etc
+6. Progress tracking to see how far I've come
+7. Leaderboard rankings
+8. I don’t care about these at all
+	5.4 Which of these sounds most fun to you in a class project? Feel free to pick multiple or add your own.
 1. Designing a custom game or animation
 2. Solving a mystery or puzzle with code
 3. Making an app or website that others can use
 4. Analyzing data or working with simulations
 5. Competing in a coding challenge or hackathon
 6. Acting in a business scenario
-	5.5 What types of questions do you prefer?
+	5.5 What types of questions do you prefer? Feel free to pick multiple or add your own.
 1. Multiple Choice Questions
 2. Free response questions
 3. Puzzles such as filling the missing components, for example  10 + ? = 20 -?
 4. Word problems with context setting
-5. All of them 
-	5.6 You’re given a LEGO set with no instructions. How do you start building?
+5. All of them
+	5.6 When you make mistakes in your code and it doesn't work, how would you like to receive feedback?
+1. I enjoy debugging and finding the problem, so do not hint till I ask
+2. Only tell me how many mistakes I made so I can find them one by one
+3. Provide hints that guide me and encourage me to find all the mistakes myself
+4. Provide clear info showing exactly where the problems are and why it failed, but encourage me figure out how to fix it
+5. Provide detailed explanation on what are wrong and how to fix everything, then encourage me try first before showing me the correct answer
+	5.7 You’re given a LEGO set with no instructions. How do you start building?
 1. I would look at the picture on the box and guess the steps
 2. I sort the pieces by size or color first, then try to see where each piece goes
 3. I just start putting pieces together to see what comes out and fix as I go
