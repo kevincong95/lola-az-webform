@@ -44,7 +44,7 @@ def display_landing():
                 __import__('base64').b64encode(open("assets/FullLogo.jpg", "rb").read()).decode()
             ), unsafe_allow_html=True)
         st.markdown("---")
-        
+    
         st.markdown("### Ready to FastLearn?")
         st.write("Please log in to onboard your account or continue your learning journey!")
         
@@ -112,7 +112,7 @@ def display_landing():
         
         if st.button("Chat with Lola - I speak 中文 or your preferred language!", key="chat_button", use_container_width=True, type="primary"):
             utils.go_to_page("csa_chat")
-    
+        
     # Add learning tools section
     st.markdown("---")  # Add a separator
     st.markdown("""
