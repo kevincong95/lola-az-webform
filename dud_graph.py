@@ -23,7 +23,7 @@ def chat_node(state: DudState):
     if not state.get("messages", []):
         prompt = f"""
         You are a helpful teaching assistant. You are speaking to an 8th or 9th grade student in AP Computer Science.
-        Give the student multiple choice questions, one at a time, on the topic of {state.get('topic', 'What is a computer')}.
+        Give the student multiple choice questions, one at a time, on the topic of {state.get('topic', 'Computer Fundamentals')}.
         IMPORTANT: This is an interactive session. Wait for the student's response before proceeding.
         If the student answers the question, give feedback regardless of whether their answer is correct or incorrect.
         If the student asks for clarification regarding quiz question, answer it. Otherwise redirect them back to the quiz.

@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from lola_graph import primary_graph
 
 # Function to start a new session
-def start_new_session(current_topic, previous_topic, session_type):
+def start_new_session(nextTopic, previous_topic, session_type):
     # Reset state for new session
     squads_ready = st.session_state.state["squads_ready"] or st.session_state.login_time - st.session_state.user_data["last_login"] < timedelta(days = 2) or not previous_topic
     if not squads_ready:
@@ -15,7 +15,7 @@ def start_new_session(current_topic, previous_topic, session_type):
             st.write(f"Uh-oh! Looks like your squads have fallen asleep! We'll have to wake them up with a review on {previous_topic}.")
     st.session_state.messages = []
     st.session_state.state = {
-        "user_topic": current_topic,
+        "user_topic": nextTopic,
         "previous_topic": previous_topic,
         "messages": [],
         "session_type": session_type,
@@ -29,7 +29,7 @@ def start_new_session(current_topic, previous_topic, session_type):
     if session_type == "lesson":     
         # Prepare lesson state
         lesson_state = {
-            "topic": current_topic,
+            "topic": nextTopic,
             "messages": [],
             "lesson_plan": None,
             "summary": None
@@ -105,13 +105,13 @@ def lola_main():
     </div>
     """, unsafe_allow_html=True)
     
-    user_topic = st.session_state.user_data.get('current_topic', "What is a computer?")
+    user_topic = st.session_state.user_data.get('nextTopic', "Computer Fundamentals")
     previous_topic = st.session_state.user_data.get('previous_topic', "")
     
     st.markdown(f"""
     <div style='background: linear-gradient(135deg, #1E1E2E, #2E2E3E); padding: 1.5rem; border-radius: 10px; margin: 1rem 0; border-left: 4px solid #9747FF;'>
-        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Welcome back, <strong style='color: #9747FF;'>{st.session_state.user_data['username']}</strong>!</p>
-        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Lola hasn't seen you since {st.session_state.user_data.get('last_login', st.session_state.login_time)}</p>
+        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Welcome back, <strong style='color: #9747FF;'>{st.session_state.get('user_data', {}).get('name', 'Student')}</strong>!</p>
+        <p style='color: #CCCCCC; margin-bottom: 0.5rem;'>Lola hasn't seen you since {st.session_state.get('user_data', {}).get('last_login', st.session_state.get('login_time', datetime.now()))}</p>
         <p style='color: #CCCCCC; margin: 0;'>Ready to begin your session on <strong style='color: #9747FF;'>'{user_topic}'</strong>? Just hit 'Start Session'!</p>
     </div>
     """, unsafe_allow_html=True)
