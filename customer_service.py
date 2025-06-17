@@ -3,6 +3,7 @@ import utils
 from onboard_agent import sally_graph
 from datetime import datetime
 from utils import create_new_user, get_avatar_base64
+import re
 
 def initialize_onboard_state():
     """Initialize or reset the onboarding state."""
@@ -72,6 +73,8 @@ def extract_question_options(content: str) -> tuple[str, list[str]]:
         if any(line.strip().startswith(f"{chr(i)})") for i in range(97, 123)):
             option = line.strip()
             if option:
+                # Strip any suffix enclosed in (*...*) from the option text
+                option = re.sub(r'\s*\(\*[^)]*\*\)', '', option)
                 options.append(option)
         else:
             question_lines.append(line)
@@ -85,7 +88,7 @@ def display_question_options(msg_idx: int, question_text: str, options: list[str
     
     if options:
         # Check if this is a 'pick multiple' question
-        is_multi = "feel free to pick multiple" in question_text.lower()
+        is_multi = "pick multiple" in question_text.lower()
         if msg_idx == last_question_idx:
             st.session_state.onboard_state["current_options"] = options
             st.session_state.onboard_state["button_counter"] = len(options)
@@ -151,8 +154,6 @@ def display_account_creation(student_profile: dict, user: dict):
             creation_time = datetime.now()
             st.session_state.user_data["created_at"] = creation_time
             st.session_state.user_data["last_login"] = creation_time
-            st.session_state.user_data["current_topic"] = "What is a computer?"
-            st.session_state.user_data["previous_topic"] = ""
             success, message = create_new_user(st.session_state.user_data)
             if success:
                 st.success("🎉 Your account has been created successfully!")
@@ -265,11 +266,9 @@ def display_customer_service():
                         st.write(message["content"])
             
             # Chat input
-            user_input = st.chat_input(
-                "Type your response here..." if not onboard_state.get("awaiting_choice", False) else "Select an option or type your thoughts...",
-                key="chat_input"
-            )
-            if user_input and not onboard_state.get("awaiting_choice", False):
+            user_input = st.chat_input("Type your response here... (or select an option)", key="chat_input")
+            if user_input:
+                # If a chat input is submitted, treat it as the response (even if awaiting_choice is True)
                 onboard_state["pending_response"] = user_input
             
             # Handle pending response
