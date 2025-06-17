@@ -36,7 +36,7 @@ def primary_assistant(state: PrimaryState):
     """Handles user messages and determines the next step."""
     # Prepare default states if needed
     if not state.get('subgraph_state'):
-        topic = state.get("user_topic", "what is a computer") if state.get('squads_ready', False) else state.get("previous_topic")
+        topic = state.get("user_topic", "Computer Fundamentals") if state.get('squads_ready', False) else state.get("previous_topic")
         session_type = state.get("session_type", "lesson")
         
         if session_type == "lesson":
@@ -101,7 +101,7 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
     if not state.get("squads_ready", False):
         # We have just completed a review and would like to determine whether to start lesson with new topic or repeat previous one
         prompt = f"""
-        The student has taken a review session on {state.get("previous_topic", "What is a computer")}
+        The student has taken a review session on {state.get("previous_topic", "Computer Fundamentals")}
         Based on the following summary of their performance, determine if they are ready to move on to the next lesson.
 
         Summary: {summary}
@@ -114,7 +114,7 @@ def summarize_and_route(state: PrimaryState) -> Dict[str, Any]:
             new_topic = state.get("user_topic")
             recommendation = f"I recommend moving on to the lesson for {new_topic}."
         else:
-            new_topic = state.get("previous_topic", "What is a computer")
+            new_topic = state.get("previous_topic", "Computer Fundamentals")
             recommendation = f"I recommend repeating the lesson for {new_topic}."
     else:
         # Use LLM to determine if student needs a lesson or quiz based on the summary

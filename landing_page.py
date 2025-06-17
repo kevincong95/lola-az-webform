@@ -27,8 +27,27 @@ def display_landing():
     """Display the landing page."""
     # Check if user is logged in after Google authentication
     if getattr(st, "user", None) and st.user.get("is_logged_in", False):
-        utils.go_to_page("customer_service")
-        return
+        # Try to retrieve user's information from MongoDB
+        try:
+            client = utils.get_mongodb_connection()
+            db = client[utils.MONGO_DB_NAME]
+            users_collection = db.students
+            
+            # Search for user by email
+            user_email = st.user.get("email")
+            if user_email:
+                existing_user = users_collection.find_one({"email": user_email})
+                if existing_user:
+                    st.session_state.user_data = existing_user
+                    utils.go_to_page("main")
+                else:
+                    utils.go_to_page("customer_service")
+            else:
+                utils.go_to_page("customer_service")
+        except Exception as e:
+            # If there's an error with MongoDB, go to customer service
+            print(f"Error checking user in database: {e}")
+            utils.go_to_page("customer_service")
 
     # Add sidebar with logo and login
     with st.sidebar:

@@ -22,7 +22,7 @@ class ReviewState(MessagesState):
 
 def chat_node(state: ReviewState):
     if not state.get("messages", []):
-        topic = state.get('topic', 'What is a computer')
+        topic = state.get('topic', 'Computer Fundamentals')
         prompt = f"""
         You are a helpful teaching assistant. You are speaking to an 8th or 9th grade student in AP Computer Science.
         Give the student 10 multiple choice questions, one at a time. {topic} is the topic the student has most recently studied.

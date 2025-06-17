@@ -39,7 +39,7 @@ def chat_node(state: LessonState) -> LessonState:
         """)
     if not state.get("messages", []):
         initial = HumanMessage(content=f"""
-        The topic for today is: {state.get('topic', 'What is a computer')}.
+        The topic for today is: {state.get('topic', 'Computer Fundamentals')}.
 
         Before you begin the lesson, check whether a lesson plan already exists. If not, fetch one using the `fetch_lesson_plan` tool.
         """)
