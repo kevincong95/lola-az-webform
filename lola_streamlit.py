@@ -1,5 +1,6 @@
 import streamlit as st
 import utils
+import re
 
 from datetime import datetime, timedelta
 from langchain_core.messages import AIMessage, HumanMessage
@@ -7,6 +8,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 from lola_graph import primary_graph
 
 lola_avatar = utils.get_avatar_base64("assets/lola.png")
+
+def highlight_brackets(text, color="#F5CCF5"):
+    return re.sub(r"\[(.*?)\]", rf"<span style='color: {color}; font-style: italic;'>[\1]</span>", text, flags=re.DOTALL)
 
 # Function to start a new session
 def start_new_session(nextTopic, previous_topic, session_type):
@@ -148,7 +152,10 @@ def lola_main():
     for message in st.session_state.messages:
         if message["role"] != "system":  # Don't show system messages
             with st.chat_message(message["role"], avatar=f"data:image/png;base64,{lola_avatar}" if message["role"] == "assistant" else None):
-                st.write(message["content"])
+                if message["role"] == "assistant":
+                    st.markdown(highlight_brackets(message["content"]), unsafe_allow_html=True)
+                else:
+                    st.write(message["content"])
     user_input = st.chat_input("Type your message here...")
 
     if user_input:
