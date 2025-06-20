@@ -6,12 +6,14 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from lola_graph import primary_graph
 
+lola_avatar = utils.get_avatar_base64("assets/lola.png")
+
 # Function to start a new session
 def start_new_session(nextTopic, previous_topic, session_type):
     # Reset state for new session
     squads_ready = st.session_state.state["squads_ready"] or st.session_state.login_time - st.session_state.user_data["last_login"] < timedelta(days = 2) or not previous_topic
     if not squads_ready:
-        with st.chat_message('assistant'):
+        with st.chat_message('assistant', avatar=f"data:image/png;base64,{lola_avatar}"):
             st.write(f"Uh-oh! Looks like your squads have fallen asleep! We'll have to wake them up with a review on {previous_topic}.")
     st.session_state.messages = []
     st.session_state.state = {
@@ -22,7 +24,8 @@ def start_new_session(nextTopic, previous_topic, session_type):
         "squads_ready": squads_ready,
         "subgraph_state": None,
         "next_step": None,
-        "remaining_steps": 5
+        "remaining_steps": 5,
+        "user_profile": st.session_state.user_data
     }
     
     # Handle lesson sessions
@@ -126,7 +129,8 @@ def lola_main():
             "squads_ready": False,
             "subgraph_state": None,
             "session_type": "lesson",
-            "next_step": None
+            "next_step": None,
+            "user_profile": st.session_state.user_data
         }
 
     with st.sidebar:
@@ -143,7 +147,7 @@ def lola_main():
 
     for message in st.session_state.messages:
         if message["role"] != "system":  # Don't show system messages
-            with st.chat_message(message["role"]):
+            with st.chat_message(message["role"], avatar=f"data:image/png;base64,{lola_avatar}" if message["role"] == "assistant" else None):
                 st.write(message["content"])
     user_input = st.chat_input("Type your message here...")
 
@@ -163,7 +167,7 @@ def lola_main():
                 user_topic = st.session_state.state.get("user_topic", "")
                 
                 # Display confirmation message
-                with st.chat_message("assistant"):
+                with st.chat_message("assistant", avatar=f"data:image/png;base64,{lola_avatar}"):
                     message = f"Great! Let's proceed with the {new_session_type}."
                     st.write(message)
                 st.session_state.messages.append({"role": "assistant", "content": message})
@@ -185,7 +189,7 @@ def lola_main():
                 utils.go_to_page("landing")
             else:
                 # User provided something else
-                with st.chat_message("assistant"):
+                with st.chat_message("assistant", avatar=f"data:image/png;base64,{lola_avatar}"):
                     st.write("I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session.")
                 st.session_state.messages.append({"role": "assistant", "content": "I didn't understand your choice. Please reply with 'Continue' to proceed with the recommended session or 'Exit' to end this session."})
             
@@ -228,7 +232,7 @@ def lola_main():
         # Priority order for finding messages to display:
         # 1. Check direct message from state
         if new_state.get("message"):
-            with st.chat_message("assistant"):
+            with st.chat_message("assistant", avatar=f"data:image/png;base64,{lola_avatar}"):
                 st.write(new_state["message"])
             st.session_state.messages.append({"role": "assistant", "content": new_state["message"]})
         
@@ -237,7 +241,7 @@ def lola_main():
             latest_messages = new_state["subgraph_state"]["messages"]
             for msg in reversed(latest_messages):
                 if isinstance(msg, AIMessage) and msg.content not in [m["content"] for m in st.session_state.messages if m["role"] == "assistant"]:
-                    with st.chat_message("assistant"):
+                    with st.chat_message("assistant", avatar=f"data:image/png;base64,{lola_avatar}"):
                         st.write(msg.content)
                     st.session_state.messages.append({"role": "assistant", "content": msg.content})
                     break

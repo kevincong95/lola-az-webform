@@ -24,6 +24,7 @@ class PrimaryState(MessagesState):
     next_step: Optional[Literal["cassie_entry", "dud_entry", "review_entry", "summarize_and_route"]]
     recommended_session_type: Literal["lesson", "quiz"]
     remaining_steps: int
+    user_profile: dict
 
 
 llm = ChatOpenAI(
@@ -56,6 +57,7 @@ def primary_assistant(state: PrimaryState):
         subgraph_state = default_state
     else:
         subgraph_state = state["subgraph_state"]
+    subgraph_state["user_profile"] = state["user_profile"]
     
     # Determine routing
     next_step = route_to_subgraph(state)

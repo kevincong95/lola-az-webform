@@ -96,7 +96,7 @@ def go_to_page(page_name: str):
 
 def create_new_user(user_data, password = None):
     """Create a new user in the database with provided information."""
-    client = st.session_state.mongo_client
+    client = get_mongodb_connection()
     if client is None:
         return False, "Could not connect to database."
     
