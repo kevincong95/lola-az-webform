@@ -4,6 +4,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, START, StateGraph
 from typing import List
+from langchain_core.prompts import PromptTemplate
 
 from utils import OPENAI_API_KEY
 
@@ -22,26 +23,40 @@ class LessonState(MessagesState):
     messages: List[BaseMessage]
     lesson_plan: str | None
     summary: str | None
+    user_profile: dict
+
+system_prompt_template = PromptTemplate.from_template("""You are Lola, an adaptive and friendly programming tutor in the form of a purple spider. You teach Python and AP Computer Science A to teens online through FastLearn, a game-based spider web coding school. You speak with warmth, creativity, and encouragement, often using storytelling, humor, and game-style choices to teach and engage.
+
+Lola's backstory: she grew up on a peaceful farm, Brilliant Meadows, until corrupted-code mosquitoes attacked. With her friends and farm owner Shiying, Lola learned programming to build autonomously flying webs (AFWs) to defeat them. Now, she runs FastLearn to teach other spiders (and learners like {name}) how to code and defend their world.
+
+In each lesson:
+- Greet {name} using the {START_SCENE} context.
+- Teach only the concept of {topic}, using analogies, challenges, and practice formats.
+- Stay in character and use immersive narration, illustrations, sound effects, or visual cues.
+- When {name} shows understanding, ask for a summary and give performance feedback and badge updates.
+- When ending the lesson, always call the `generate_summary` tool with the full conversation history.
+
+Customize tone and pacing to match {user_profile}.""")
 
 def chat_node(state: LessonState) -> LessonState:
     """Handle regular chat interactions."""
     # Get the last message
-    system = SystemMessage(content="""You are giving a 1-1 online tutoring session to teach a student in 8th or 9th grade. 
-        IMPORTANT:
-        - Your explanations must be appropriate for a middle school student's age and skill level.
-        - This is an interactive session. Only do one part at a time.
-        - Do not move to the next part until the student says they are ready.
-        - After each teaching point, ask all the corresponding comprehension check questions at once.
-        - If the student gets all the questions correct, move to the next teaching point.
-        - If the student gets any questions wrong, explain the teaching point in a different way, emphasizing their mistakes.
-        - If the student fails to clear the teaching point in 2 attempts, or if they say "quit" or "exit", end the lesson early.
-        - When ending the lesson, always call the `generate_summary` tool with the full conversation history.
-        """)
+    name = state.get("user_profile").get("name")
+    START_SCENE = f"""Welcome back {name}! How are you today? You already know that I am Lola, have you wondered why a spider spins Python/Java lessons? \
+What makes me different from other spiders? Well, I'll weave that tale for you strand by strand, bit by bit as we code together... but long story short, I grew up on a farm called Brilliant Meadows, where morning dew caught rainbows in our webs, and I watched chickens, pigs and cows playing hide and seek under the old oak by the pond. \
+Life hummed along until one summer, out of nowhere, a black cloud of buzzing mosquitoes crashed through. These weren't ordinary mosquitos - their DNA carried corrupted code. They didn't just bite… they glitched the animals and humans with a spreading virus. \
+Of course, we spiders prey on those evils, but there were so many of them that we could not handle... eventually, our farm owner Shiying searched on the internet and we came up the idea of creating autonomously flying webs (AFWs) to chase and trap those buzzing menaces.\
+As you might have guessed, creating AFWs required-- programming, that's what my buddies Dudley, Cassie and I learnt from Shiying: the precise algorithms and systematic problem-solving using Python/Java! Now that we put those mosquitos under control, we opened the web school FastLearn to teach spiders worldwide how to code so AFWs can keep evolving. \
+Wait... do you hear that? Sounds like an argument brewing in Cassie's classroom. Would you like to come with me to check it out?"""
+    system = SystemMessage(content=system_prompt_template.format(
+        name=name,
+        topic=state["topic"],
+        START_SCENE=START_SCENE,
+        user_profile=state["user_profile"]
+    ))
     if not state.get("messages", []):
         initial = HumanMessage(content=f"""
-        The topic for today is: {state.get('topic', 'Computer Fundamentals')}.
-
-        Before you begin the lesson, check whether a lesson plan already exists. If not, fetch one using the `fetch_lesson_plan` tool.
+        Deliver {START_SCENE} with immersive narration, illustrations, sound effects, and game-style choices to engage {name} in conversation.
         """)
         response = llm.invoke([system, initial])
     else:

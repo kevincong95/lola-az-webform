@@ -53,6 +53,6 @@ def build_graph():
     workflow.add_edge("chat_node", END)
 
     # Compile the graph
-    return workflow.compile(name='Pressure')
+    return workflow.compile(name='Presto')
 
 review_graph = build_graph()
